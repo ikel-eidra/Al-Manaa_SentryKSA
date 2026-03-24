@@ -1,0 +1,11 @@
+{
+    "name": "SentryKSA",
+    "short_name": "SentryKSA",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0a0e1a",
+    "theme_color": "#4fc3f7",
+    "description": "Strategic Risk Monitoring Dashboard for Saudi Arabia",
+    "orientation": "landscape",
+    "prefer_related_applications": false
+}

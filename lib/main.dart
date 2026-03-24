@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/threat_provider.dart';
@@ -11,18 +12,19 @@ import 'screens/war_room_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Lock to portrait mode for dashboard UX
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
+  // Mobile-only: orientation lock and status bar styling
+  if (!kIsWeb) {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
 
-  // Immersive status bar
-  SystemChrome.setSystemUIOverlayStyle(const SystemUIOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-  ));
+    SystemChrome.setSystemUIOverlayStyle(const SystemUIOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ));
+  }
 
   // Initialize services
   final feedService = ThreatFeedService(

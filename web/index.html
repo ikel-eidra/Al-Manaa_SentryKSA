@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="SentryKSA - Strategic Risk Monitoring Dashboard for Saudi Arabia">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SentryKSA">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+  <title>SentryKSA — War Room Dashboard</title>
+
+  <!-- Full-viewport dashboard -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <!-- Google Maps JavaScript API (required for google_maps_flutter on web) -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY"></script>
+
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      background-color: #0a0e1a;
+    }
+
+    /* Loading screen styled to match the dark dashboard theme */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      background: radial-gradient(ellipse at center, #0f1628 0%, #0a0e1a 100%);
+      color: #4fc3f7;
+      font-family: 'Roboto Mono', monospace;
+    }
+
+    .loading h1 {
+      font-size: 2rem;
+      font-weight: 300;
+      letter-spacing: 0.3em;
+      margin-bottom: 0.5rem;
+    }
+
+    .loading p {
+      font-size: 0.85rem;
+      color: #78909c;
+      letter-spacing: 0.1em;
+    }
+
+    .loading .spinner {
+      width: 40px;
+      height: 40px;
+      margin-top: 2rem;
+      border: 3px solid rgba(79, 195, 247, 0.2);
+      border-top: 3px solid #4fc3f7;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="loading" id="loading">
+    <h1>SENTRY KSA</h1>
+    <p>INITIALIZING WAR ROOM DASHBOARD</p>
+    <div class="spinner"></div>
+  </div>
+
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

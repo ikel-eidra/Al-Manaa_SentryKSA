@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
@@ -124,7 +125,7 @@ class _WarRoomScreenState extends State<WarRoomScreen> {
                 circles: allCircles,
                 markers: allMarkers,
                 polylines: trajectories,
-                myLocationEnabled: true,
+                myLocationEnabled: !kIsWeb,
                 myLocationButtonEnabled: false,
                 zoomControlsEnabled: false,
                 compassEnabled: true,

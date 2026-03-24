@@ -60,9 +60,12 @@ void main() {
       expect(asset, isNull);
     });
 
-    test('contains all four sectors', () {
+    test('contains all expected sectors', () {
       final sectors = AssetInventory.allAssets.map((a) => a.sector).toSet();
-      expect(sectors, containsAll(['Energy', 'Water', 'Govt', 'Data']));
+      expect(sectors, containsAll([
+        'Energy', 'Water', 'Govt', 'Data',
+        'Military', 'Transport', 'Power', 'Financial',
+      ]));
     });
   });
 }
