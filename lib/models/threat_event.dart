@@ -9,6 +9,11 @@ class ThreatEvent {
   final String? targetCorridor;
   final Duration? estimatedTimeToImpact;
 
+  // Geospatial fields for map plotting
+  final double? latitude;
+  final double? longitude;
+  final double confidence; // 0.0 - 1.0 source confidence
+
   const ThreatEvent({
     required this.id,
     required this.source,
@@ -18,9 +23,13 @@ class ThreatEvent {
     required this.severityScore,
     this.targetCorridor,
     this.estimatedTimeToImpact,
+    this.latitude,
+    this.longitude,
+    this.confidence = 0.5,
   });
 
   bool get isActive => estimatedTimeToImpact != null;
+  bool get hasLocation => latitude != null && longitude != null;
 
   String get sourceFlag {
     switch (source) {
@@ -35,6 +44,24 @@ class ThreatEvent {
     }
   }
 
+  /// Icon glyph for threat type.
+  String get typeIcon {
+    switch (type) {
+      case ThreatType.ballistic:
+        return '🚀';
+      case ThreatType.cruise:
+        return '✈️';
+      case ThreatType.drone:
+        return '🛸';
+      case ThreatType.cyber:
+        return '💻';
+      case ThreatType.naval:
+        return '🚢';
+      case ThreatType.hybrid:
+        return '⚔️';
+    }
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'source': source,
@@ -44,6 +71,9 @@ class ThreatEvent {
         'severityScore': severityScore,
         'targetCorridor': targetCorridor,
         'estimatedTimeToImpact': estimatedTimeToImpact?.inSeconds,
+        'latitude': latitude,
+        'longitude': longitude,
+        'confidence': confidence,
       };
 
   factory ThreatEvent.fromJson(Map<String, dynamic> json) => ThreatEvent(
@@ -57,6 +87,9 @@ class ThreatEvent {
         estimatedTimeToImpact: json['estimatedTimeToImpact'] != null
             ? Duration(seconds: json['estimatedTimeToImpact'] as int)
             : null,
+        latitude: (json['latitude'] as num?)?.toDouble(),
+        longitude: (json['longitude'] as num?)?.toDouble(),
+        confidence: (json['confidence'] as num?)?.toDouble() ?? 0.5,
       );
 }
 

@@ -22,6 +22,31 @@ void main() {
     province: 'Eastern Province',
   );
 
+  ThreatEvent makeEvent({
+    required String id,
+    required String source,
+    ThreatType type = ThreatType.ballistic,
+    int severityScore = 8,
+    double confidence = 0.90,
+    String? targetCorridor = 'Eastern Province',
+    Duration? eta = const Duration(minutes: 12),
+    DateTime? timestamp,
+  }) {
+    return ThreatEvent(
+      id: id,
+      source: source,
+      headline: 'Test event $id',
+      timestamp: timestamp ?? DateTime.now(),
+      type: type,
+      severityScore: severityScore,
+      confidence: confidence,
+      targetCorridor: targetCorridor,
+      estimatedTimeToImpact: eta,
+      latitude: 26.0,
+      longitude: 49.7,
+    );
+  }
+
   group('ThreatTriangulationEngine', () {
     test('returns empty map when no events provided', () {
       final result = engine.triangulate([], [testAsset]);
@@ -29,20 +54,7 @@ void main() {
     });
 
     test('returns assessments keyed by asset ID', () {
-      final events = [
-        ThreatEvent(
-          id: 'evt-1',
-          type: ThreatType.ballistic,
-          source: 'CENTCOM',
-          latitude: 26.0,
-          longitude: 49.7,
-          timestamp: DateTime.now(),
-          confidence: 0.92,
-          targetCorridor: 'Eastern Province',
-          isActive: true,
-        ),
-      ];
-
+      final events = [makeEvent(id: 'evt-1', source: 'CENTCOM')];
       final result = engine.triangulate(events, [testAsset]);
       expect(result.containsKey('E001'), isTrue);
     });
@@ -50,87 +62,54 @@ void main() {
     test('produces higher score with multiple corroborating sources', () {
       final now = DateTime.now();
       final singleSourceEvents = [
-        ThreatEvent(
-          id: 'evt-1',
-          type: ThreatType.ballistic,
-          source: 'CENTCOM',
-          latitude: 26.0,
-          longitude: 49.7,
-          timestamp: now,
-          confidence: 0.90,
-          targetCorridor: 'Eastern Province',
-          isActive: true,
-        ),
+        makeEvent(id: 'evt-1', source: 'CENTCOM', timestamp: now),
       ];
 
       final multiSourceEvents = [
-        ThreatEvent(
-          id: 'evt-1',
-          type: ThreatType.ballistic,
-          source: 'CENTCOM',
-          latitude: 26.0,
-          longitude: 49.7,
-          timestamp: now,
-          confidence: 0.90,
-          targetCorridor: 'Eastern Province',
-          isActive: true,
-        ),
-        ThreatEvent(
+        makeEvent(id: 'evt-1', source: 'CENTCOM', timestamp: now),
+        makeEvent(
           id: 'evt-2',
-          type: ThreatType.ballistic,
           source: 'IDF',
-          latitude: 26.0,
-          longitude: 49.7,
-          timestamp: now,
           confidence: 0.85,
-          targetCorridor: 'Eastern Province',
-          isActive: true,
+          timestamp: now,
         ),
       ];
 
-      final singleResult = engine.triangulate(singleSourceEvents, [testAsset]);
-      final multiResult = engine.triangulate(multiSourceEvents, [testAsset]);
+      final singleResult =
+          engine.triangulate(singleSourceEvents, [testAsset]);
+      final multiResult =
+          engine.triangulate(multiSourceEvents, [testAsset]);
 
       expect(
-        multiResult['E001']!.score,
-        greaterThan(singleResult['E001']!.score),
+        multiResult['E001']!.threatScore,
+        greaterThan(singleResult['E001']!.threatScore),
       );
     });
 
     test('alert level is critical for high scores', () {
+      final now = DateTime.now();
       final events = [
-        ThreatEvent(
+        makeEvent(
           id: 'evt-1',
-          type: ThreatType.ballistic,
           source: 'CENTCOM',
-          latitude: 25.94,
-          longitude: 49.68,
-          timestamp: DateTime.now(),
           confidence: 0.98,
-          targetCorridor: 'Eastern Province',
-          isActive: true,
+          severityScore: 9,
+          timestamp: now,
         ),
-        ThreatEvent(
+        makeEvent(
           id: 'evt-2',
-          type: ThreatType.ballistic,
           source: 'IDF',
-          latitude: 25.94,
-          longitude: 49.68,
-          timestamp: DateTime.now(),
           confidence: 0.95,
-          targetCorridor: 'Eastern Province',
-          isActive: true,
+          severityScore: 9,
+          timestamp: now,
         ),
-        ThreatEvent(
+        makeEvent(
           id: 'evt-3',
-          type: ThreatType.cruise,
           source: 'IRNA',
-          latitude: 25.95,
-          longitude: 49.69,
-          timestamp: DateTime.now(),
+          type: ThreatType.cruise,
           confidence: 0.65,
-          targetCorridor: 'Eastern Province',
-          isActive: true,
+          severityScore: 8,
+          timestamp: now,
         ),
       ];
 

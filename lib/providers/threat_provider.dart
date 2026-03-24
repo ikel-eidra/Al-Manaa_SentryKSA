@@ -20,6 +20,7 @@ class ThreatProvider extends ChangeNotifier {
   List<ThreatEvent> _events = [];
   Map<String, ThreatAssessment> _assessments = {};
   Map<String, ImpactReport> _impactReports = {};
+  List<StrategicAsset> _monitoredAssets = [];
   ConnectionStatus _connectionStatus = ConnectionStatus.disconnected;
   bool _isLoading = false;
   String? _error;
@@ -34,6 +35,7 @@ class ThreatProvider extends ChangeNotifier {
   List<ThreatEvent> get events => _events;
   Map<String, ThreatAssessment> get assessments => _assessments;
   Map<String, ImpactReport> get impactReports => _impactReports;
+  List<StrategicAsset> get monitoredAssets => _monitoredAssets;
   ConnectionStatus get connectionStatus => _connectionStatus;
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -42,6 +44,45 @@ class ThreatProvider extends ChangeNotifier {
   String? get activeThreatType => _activeThreatType;
 
   bool get hasActiveThreat => _activeCountdown != null;
+
+  /// Active inbound events (those with an active ETA).
+  List<ThreatEvent> get activeInboundEvents =>
+      _events.where((e) => e.isActive).toList();
+
+  /// Recent events for the ticker (last 50).
+  List<ThreatEvent> get recentEvents =>
+      _events.take(50).toList();
+
+  /// Total economic impact across all monitored assets.
+  double get totalDailyLoss =>
+      _impactReports.values.fold(0.0, (sum, r) => sum + r.dailyRevenueLoss);
+
+  /// Worst-case Brent projection.
+  double get worstCaseBrent {
+    if (_impactReports.isEmpty) return EconomicEngine.brentBasePrice;
+    return _economicEngine.worstCaseBrent(_impactReports.values.toList());
+  }
+
+  /// Brent price surge delta.
+  double get brentDelta => worstCaseBrent - EconomicEngine.brentBasePrice;
+
+  /// Number of assets under active high/critical threat.
+  int get assetsUnderThreat => _assessments.values
+      .where((a) =>
+          a.alertLevel == AlertLevel.critical ||
+          a.alertLevel == AlertLevel.high)
+      .length;
+
+  /// Average intercept readiness (simulated from threat scores).
+  double get interceptRate {
+    if (_assessments.isEmpty) return 95.0;
+    final avgThreat = _assessments.values
+        .map((a) => a.threatScore)
+        .reduce((a, b) => a + b) /
+        _assessments.length;
+    // Higher avg threat = lower intercept confidence
+    return (98.0 - avgThreat * 0.4).clamp(50.0, 99.0);
+  }
 
   String get countdownDisplay {
     if (_activeCountdown == null) return '--:--:--';
@@ -56,6 +97,19 @@ class ThreatProvider extends ChangeNotifier {
       .where((a) => a.alertLevel == AlertLevel.critical)
       .toList();
 
+  /// Assets sorted by threat score descending (for the intel feed).
+  List<MapEntry<StrategicAsset, ThreatAssessment>> get rankedThreats {
+    final entries = <MapEntry<StrategicAsset, ThreatAssessment>>[];
+    for (final asset in _monitoredAssets) {
+      final assessment = _assessments[asset.id];
+      if (assessment != null && assessment.threatScore > 10) {
+        entries.add(MapEntry(asset, assessment));
+      }
+    }
+    entries.sort((a, b) => b.value.threatScore.compareTo(a.value.threatScore));
+    return entries;
+  }
+
   ThreatProvider({
     required ThreatFeedService feedService,
     required WebSocketService wsService,
@@ -65,13 +119,8 @@ class ThreatProvider extends ChangeNotifier {
   }
 
   void _initialize() {
-    // Listen to HTTP feed events
     _feedService.eventStream.listen(_onNewEvent);
-
-    // Listen to WebSocket events
     _wsService.eventStream.listen(_onNewEvent);
-
-    // Track connection status
     _wsService.statusStream.listen((status) {
       _connectionStatus = status;
       notifyListeners();
@@ -86,6 +135,7 @@ class ThreatProvider extends ChangeNotifier {
 
   /// Fetch initial data and run triangulation.
   Future<void> loadInitialData(List<StrategicAsset> assets) async {
+    _monitoredAssets = assets;
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -105,12 +155,16 @@ class ThreatProvider extends ChangeNotifier {
   void _onNewEvent(ThreatEvent event) {
     _events.insert(0, event);
 
-    // Keep only last 500 events
     if (_events.length > 500) {
       _events = _events.sublist(0, 500);
     }
 
-    // Check for active countdown
+    // Re-triangulate on new data
+    if (_monitoredAssets.isNotEmpty) {
+      _runTriangulation(_monitoredAssets);
+      _calculateAllImpacts(_monitoredAssets);
+    }
+
     if (event.isActive && event.estimatedTimeToImpact != null) {
       _startCountdown(event);
     }
@@ -137,22 +191,17 @@ class ThreatProvider extends ChangeNotifier {
     });
   }
 
-  /// Re-run triangulation with current events.
   void _runTriangulation(List<StrategicAsset> assets) {
     _assessments = _triangulationEngine.triangulate(_events, assets);
   }
 
-  /// Calculate economic impact for all assets.
   void _calculateAllImpacts(List<StrategicAsset> assets) {
     for (final asset in assets) {
       _impactReports[asset.id] = _economicEngine.calculateImpact(asset);
     }
   }
 
-  /// Get impact report for a specific asset.
   ImpactReport? getImpactReport(String assetId) => _impactReports[assetId];
-
-  /// Get threat assessment for a specific asset.
   ThreatAssessment? getAssessment(String assetId) => _assessments[assetId];
 
   @override
