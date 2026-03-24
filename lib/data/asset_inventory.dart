@@ -1,13 +1,23 @@
 import '../models/strategic_asset.dart';
 
-/// Static inventory of KSA strategic assets monitored by SentryKSA.
-/// Includes energy infrastructure, water desalination, government facilities,
-/// and data centers across Saudi provinces.
+/// Complete inventory of KSA strategic assets monitored by SentryKSA.
+///
+/// Covers all sectors that become targets during escalation:
+///   - Energy: Oil fields, refineries, processing, gas, petrochemicals
+///   - Water: Desalination plants, reservoirs, treatment
+///   - Power: Generation stations, substations, grid interconnects
+///   - Military: Armed forces, National Guard, air defense, naval
+///   - Transport: Airports, seaports, causeway, rail
+///   - Government: Ministries, command centers, royal facilities
+///   - Financial: KAFD, banking, stock exchange
+///   - Data: Cloud centers, telecom hubs, NIC
 class AssetInventory {
   AssetInventory._();
 
   static const List<StrategicAsset> allAssets = [
-    // ─── ENERGY SECTOR ───────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════
+    //  ENERGY SECTOR (14 assets)
+    // ═══════════════════════════════════════════════════════════════════
     StrategicAsset(
       id: 'E001',
       name: 'Abqaiq Processing Facility',
@@ -37,7 +47,7 @@ class AssetInventory {
       latitude: 24.9000,
       longitude: 49.2500,
       riskLevel: 3,
-      outputValue: 3800000, // largest conventional oil field
+      outputValue: 3800000,
       repairTier: 2,
       province: 'Eastern Province',
     ),
@@ -76,7 +86,7 @@ class AssetInventory {
     ),
     StrategicAsset(
       id: 'E007',
-      name: 'Jubail Industrial City',
+      name: 'Jubail Industrial City (SABIC)',
       sector: 'Energy',
       latitude: 27.0046,
       longitude: 49.6220,
@@ -92,7 +102,7 @@ class AssetInventory {
       latitude: 26.2867,
       longitude: 50.1135,
       riskLevel: 2,
-      outputValue: 0, // command & control, not production
+      outputValue: 0,
       repairTier: 1,
       province: 'Eastern Province',
     ),
@@ -113,13 +123,59 @@ class AssetInventory {
       sector: 'Energy',
       latitude: 24.4500,
       longitude: 49.8500,
-      riskLevel: 1,
+      riskLevel: 2,
       outputValue: 200000,
       repairTier: 1,
       province: 'Eastern Province',
     ),
+    StrategicAsset(
+      id: 'E011',
+      name: 'Wasit Gas Plant',
+      sector: 'Energy',
+      latitude: 27.2300,
+      longitude: 49.7500,
+      riskLevel: 2,
+      outputValue: 2500000, // 2.5 Bscfd gas processing
+      repairTier: 2,
+      province: 'Eastern Province',
+    ),
+    StrategicAsset(
+      id: 'E012',
+      name: 'Haradh Gas Plant',
+      sector: 'Energy',
+      latitude: 24.0800,
+      longitude: 49.0800,
+      riskLevel: 2,
+      outputValue: 1600000,
+      repairTier: 2,
+      province: 'Eastern Province',
+    ),
+    StrategicAsset(
+      id: 'E013',
+      name: 'Jazan Refinery & Terminal',
+      sector: 'Energy',
+      latitude: 16.8500,
+      longitude: 42.5800,
+      riskLevel: 2,
+      outputValue: 400000,
+      repairTier: 2,
+      province: 'Jazan Province',
+    ),
+    StrategicAsset(
+      id: 'E014',
+      name: 'Riyadh Refinery',
+      sector: 'Energy',
+      latitude: 24.5400,
+      longitude: 46.8900,
+      riskLevel: 2,
+      outputValue: 130000,
+      repairTier: 2,
+      province: 'Riyadh Province',
+    ),
 
-    // ─── WATER SECTOR ────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════
+    //  WATER SECTOR (8 assets)
+    // ═══════════════════════════════════════════════════════════════════
     StrategicAsset(
       id: 'W001',
       name: 'Ras Al-Khair Desalination',
@@ -127,7 +183,7 @@ class AssetInventory {
       latitude: 27.4800,
       longitude: 49.2200,
       riskLevel: 3,
-      outputValue: 1025000, // m³/day - largest in the world
+      outputValue: 1025000, // m³/day — largest in the world
       repairTier: 3,
       province: 'Eastern Province',
     ),
@@ -137,7 +193,7 @@ class AssetInventory {
       sector: 'Water',
       latitude: 20.6900,
       longitude: 39.5100,
-      riskLevel: 2,
+      riskLevel: 3,
       outputValue: 880000,
       repairTier: 2,
       province: 'Makkah Province',
@@ -175,8 +231,385 @@ class AssetInventory {
       repairTier: 1,
       province: 'Eastern Province',
     ),
+    StrategicAsset(
+      id: 'W006',
+      name: 'Riyadh Water Reservoirs (Briman)',
+      sector: 'Water',
+      latitude: 24.7700,
+      longitude: 46.5800,
+      riskLevel: 3,
+      outputValue: 900000,
+      repairTier: 2,
+      province: 'Riyadh Province',
+    ),
+    StrategicAsset(
+      id: 'W007',
+      name: 'Jeddah Water Distribution Hub',
+      sector: 'Water',
+      latitude: 21.4900,
+      longitude: 39.1800,
+      riskLevel: 2,
+      outputValue: 700000,
+      repairTier: 2,
+      province: 'Makkah Province',
+    ),
+    StrategicAsset(
+      id: 'W008',
+      name: 'Rabigh Desalination (IWPP)',
+      sector: 'Water',
+      latitude: 22.8000,
+      longitude: 39.0200,
+      riskLevel: 1,
+      outputValue: 600000,
+      repairTier: 2,
+      province: 'Makkah Province',
+    ),
 
-    // ─── GOVERNMENT SECTOR ───────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════
+    //  POWER SECTOR (8 assets)
+    // ═══════════════════════════════════════════════════════════════════
+    StrategicAsset(
+      id: 'P001',
+      name: 'PP-13 Riyadh Power Plant',
+      sector: 'Power',
+      latitude: 24.8200,
+      longitude: 46.5600,
+      riskLevel: 3,
+      outputValue: 4600, // MW capacity
+      repairTier: 3,
+      province: 'Riyadh Province',
+    ),
+    StrategicAsset(
+      id: 'P002',
+      name: 'Shuaibah Power & Desal Complex',
+      sector: 'Power',
+      latitude: 20.6800,
+      longitude: 39.5000,
+      riskLevel: 3,
+      outputValue: 5600,
+      repairTier: 3,
+      province: 'Makkah Province',
+    ),
+    StrategicAsset(
+      id: 'P003',
+      name: 'Ghazlan Power Plant (Eastern)',
+      sector: 'Power',
+      latitude: 26.6000,
+      longitude: 50.0500,
+      riskLevel: 2,
+      outputValue: 4200,
+      repairTier: 2,
+      province: 'Eastern Province',
+    ),
+    StrategicAsset(
+      id: 'P004',
+      name: 'Qurayyah Power Plant',
+      sector: 'Power',
+      latitude: 26.1400,
+      longitude: 50.1800,
+      riskLevel: 2,
+      outputValue: 3927,
+      repairTier: 2,
+      province: 'Eastern Province',
+    ),
+    StrategicAsset(
+      id: 'P005',
+      name: 'Rabigh Power Plant (IWPP)',
+      sector: 'Power',
+      latitude: 22.8100,
+      longitude: 39.0300,
+      riskLevel: 2,
+      outputValue: 2060,
+      repairTier: 2,
+      province: 'Makkah Province',
+    ),
+    StrategicAsset(
+      id: 'P006',
+      name: 'SEC 380kV East-Central Interconnect',
+      sector: 'Power',
+      latitude: 25.3000,
+      longitude: 48.5000,
+      riskLevel: 3,
+      outputValue: 0, // Grid backbone — no direct MW
+      repairTier: 3,
+      province: 'Eastern Province',
+    ),
+    StrategicAsset(
+      id: 'P007',
+      name: 'SEC 380kV Western Grid Hub (Jeddah)',
+      sector: 'Power',
+      latitude: 21.5400,
+      longitude: 39.1700,
+      riskLevel: 2,
+      outputValue: 0,
+      repairTier: 2,
+      province: 'Makkah Province',
+    ),
+    StrategicAsset(
+      id: 'P008',
+      name: 'Sakaka Solar PV Plant',
+      sector: 'Power',
+      latitude: 29.9500,
+      longitude: 40.2000,
+      riskLevel: 1,
+      outputValue: 300,
+      repairTier: 1,
+      province: 'Al-Jouf Province',
+    ),
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  MILITARY SECTOR (12 assets)
+    // ═══════════════════════════════════════════════════════════════════
+    StrategicAsset(
+      id: 'M001',
+      name: 'King Abdulaziz Air Base (Dhahran)',
+      sector: 'Military',
+      latitude: 26.2653,
+      longitude: 50.1522,
+      riskLevel: 3,
+      outputValue: 0,
+      repairTier: 3,
+      province: 'Eastern Province',
+    ),
+    StrategicAsset(
+      id: 'M002',
+      name: 'Prince Sultan Air Base (Al Kharj)',
+      sector: 'Military',
+      latitude: 24.0627,
+      longitude: 47.5805,
+      riskLevel: 3,
+      outputValue: 0,
+      repairTier: 3,
+      province: 'Riyadh Province',
+    ),
+    StrategicAsset(
+      id: 'M003',
+      name: 'King Khalid Military City (Hafr Al-Batin)',
+      sector: 'Military',
+      latitude: 27.9050,
+      longitude: 45.5300,
+      riskLevel: 2,
+      outputValue: 0,
+      repairTier: 2,
+      province: 'Northern Borders',
+    ),
+    StrategicAsset(
+      id: 'M004',
+      name: 'King Fahd Air Base (Taif)',
+      sector: 'Military',
+      latitude: 21.4800,
+      longitude: 40.5400,
+      riskLevel: 2,
+      outputValue: 0,
+      repairTier: 2,
+      province: 'Makkah Province',
+    ),
+    StrategicAsset(
+      id: 'M005',
+      name: 'King Faisal Air Base (Tabuk)',
+      sector: 'Military',
+      latitude: 28.3700,
+      longitude: 36.6100,
+      riskLevel: 2,
+      outputValue: 0,
+      repairTier: 2,
+      province: 'Tabuk Province',
+    ),
+    StrategicAsset(
+      id: 'M006',
+      name: 'Royal Saudi Naval Forces HQ (Jeddah)',
+      sector: 'Military',
+      latitude: 21.3891,
+      longitude: 39.8579,
+      riskLevel: 2,
+      outputValue: 0,
+      repairTier: 2,
+      province: 'Makkah Province',
+    ),
+    StrategicAsset(
+      id: 'M007',
+      name: 'King Abdulaziz Naval Base (Jubail)',
+      sector: 'Military',
+      latitude: 27.0300,
+      longitude: 49.6800,
+      riskLevel: 3,
+      outputValue: 0,
+      repairTier: 3,
+      province: 'Eastern Province',
+    ),
+    StrategicAsset(
+      id: 'M008',
+      name: 'National Guard HQ (Riyadh)',
+      sector: 'Military',
+      latitude: 24.7300,
+      longitude: 46.6200,
+      riskLevel: 3,
+      outputValue: 0,
+      repairTier: 2,
+      province: 'Riyadh Province',
+    ),
+    StrategicAsset(
+      id: 'M009',
+      name: 'National Guard King Abdulaziz Military Base (Dirab)',
+      sector: 'Military',
+      latitude: 24.4100,
+      longitude: 46.5500,
+      riskLevel: 2,
+      outputValue: 0,
+      repairTier: 2,
+      province: 'Riyadh Province',
+    ),
+    StrategicAsset(
+      id: 'M010',
+      name: 'Patriot / THAAD Battery Cluster (Eastern Province)',
+      sector: 'Military',
+      latitude: 26.4200,
+      longitude: 50.0800,
+      riskLevel: 3,
+      outputValue: 0,
+      repairTier: 3,
+      province: 'Eastern Province',
+    ),
+    StrategicAsset(
+      id: 'M011',
+      name: 'King Salman Air Base (Riyadh)',
+      sector: 'Military',
+      latitude: 24.9600,
+      longitude: 46.7000,
+      riskLevel: 2,
+      outputValue: 0,
+      repairTier: 2,
+      province: 'Riyadh Province',
+    ),
+    StrategicAsset(
+      id: 'M012',
+      name: 'Khamis Mushait Air Base (Asir)',
+      sector: 'Military',
+      latitude: 18.3000,
+      longitude: 42.8000,
+      riskLevel: 2,
+      outputValue: 0,
+      repairTier: 2,
+      province: 'Asir Province',
+    ),
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  TRANSPORT SECTOR (10 assets)
+    // ═══════════════════════════════════════════════════════════════════
+    StrategicAsset(
+      id: 'T001',
+      name: 'King Fahd Causeway (Bahrain Link)',
+      sector: 'Transport',
+      latitude: 26.1000,
+      longitude: 50.3240,
+      riskLevel: 3,
+      outputValue: 0, // 60,000+ vehicles/day
+      repairTier: 3,
+      province: 'Eastern Province',
+    ),
+    StrategicAsset(
+      id: 'T002',
+      name: 'King Abdulaziz International Airport (Jeddah)',
+      sector: 'Transport',
+      latitude: 21.6796,
+      longitude: 39.1565,
+      riskLevel: 3,
+      outputValue: 0, // 80M passengers/year capacity
+      repairTier: 3,
+      province: 'Makkah Province',
+    ),
+    StrategicAsset(
+      id: 'T003',
+      name: 'King Khalid International Airport (Riyadh)',
+      sector: 'Transport',
+      latitude: 24.9578,
+      longitude: 46.6989,
+      riskLevel: 3,
+      outputValue: 0, // 35M passengers/year
+      repairTier: 3,
+      province: 'Riyadh Province',
+    ),
+    StrategicAsset(
+      id: 'T004',
+      name: 'King Fahd International Airport (Dammam)',
+      sector: 'Transport',
+      latitude: 26.4712,
+      longitude: 49.7979,
+      riskLevel: 2,
+      outputValue: 0,
+      repairTier: 2,
+      province: 'Eastern Province',
+    ),
+    StrategicAsset(
+      id: 'T005',
+      name: 'Jeddah Islamic Port',
+      sector: 'Transport',
+      latitude: 21.4700,
+      longitude: 39.1500,
+      riskLevel: 3,
+      outputValue: 0, // Largest Red Sea port, 65% of KSA imports
+      repairTier: 3,
+      province: 'Makkah Province',
+    ),
+    StrategicAsset(
+      id: 'T006',
+      name: 'King Abdulaziz Port (Dammam)',
+      sector: 'Transport',
+      latitude: 26.4600,
+      longitude: 50.1000,
+      riskLevel: 2,
+      outputValue: 0, // Main Gulf container port
+      repairTier: 2,
+      province: 'Eastern Province',
+    ),
+    StrategicAsset(
+      id: 'T007',
+      name: 'Jubail Commercial Port',
+      sector: 'Transport',
+      latitude: 27.0200,
+      longitude: 49.6400,
+      riskLevel: 2,
+      outputValue: 0,
+      repairTier: 2,
+      province: 'Eastern Province',
+    ),
+    StrategicAsset(
+      id: 'T008',
+      name: 'Yanbu Commercial Port',
+      sector: 'Transport',
+      latitude: 24.0700,
+      longitude: 38.0600,
+      riskLevel: 2,
+      outputValue: 0, // Key Red Sea oil export terminal
+      repairTier: 2,
+      province: 'Madinah Province',
+    ),
+    StrategicAsset(
+      id: 'T009',
+      name: 'Haramain High Speed Rail (Jeddah-Makkah-Madinah)',
+      sector: 'Transport',
+      latitude: 22.3200,
+      longitude: 39.1000,
+      riskLevel: 2,
+      outputValue: 0,
+      repairTier: 2,
+      province: 'Makkah Province',
+    ),
+    StrategicAsset(
+      id: 'T010',
+      name: 'SAR North-South Railway (Riyadh-Jubail)',
+      sector: 'Transport',
+      latitude: 25.9000,
+      longitude: 48.5000,
+      riskLevel: 1,
+      outputValue: 0,
+      repairTier: 1,
+      province: 'Eastern Province',
+    ),
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  GOVERNMENT SECTOR (6 assets)
+    // ═══════════════════════════════════════════════════════════════════
     StrategicAsset(
       id: 'G001',
       name: 'Ministry of Defense (Riyadh)',
@@ -190,50 +623,111 @@ class AssetInventory {
     ),
     StrategicAsset(
       id: 'G002',
-      name: 'King Abdulaziz Air Base',
+      name: 'Ministry of Interior (Riyadh)',
       sector: 'Govt',
-      latitude: 26.2653,
-      longitude: 50.1522,
-      riskLevel: 3,
-      outputValue: 0,
-      repairTier: 3,
-      province: 'Eastern Province',
-    ),
-    StrategicAsset(
-      id: 'G003',
-      name: 'Prince Sultan Air Base',
-      sector: 'Govt',
-      latitude: 24.0627,
-      longitude: 47.5805,
+      latitude: 24.6600,
+      longitude: 46.7000,
       riskLevel: 2,
       outputValue: 0,
       repairTier: 2,
       province: 'Riyadh Province',
     ),
     StrategicAsset(
-      id: 'G004',
-      name: 'King Khalid Military City',
+      id: 'G003',
+      name: 'Royal Court (Al-Yamamah Palace)',
       sector: 'Govt',
-      latitude: 27.9050,
-      longitude: 45.5300,
+      latitude: 24.6500,
+      longitude: 46.7200,
+      riskLevel: 3,
+      outputValue: 0,
+      repairTier: 3,
+      province: 'Riyadh Province',
+    ),
+    StrategicAsset(
+      id: 'G004',
+      name: 'Presidency of State Security (Riyadh)',
+      sector: 'Govt',
+      latitude: 24.7100,
+      longitude: 46.6800,
       riskLevel: 2,
       outputValue: 0,
       repairTier: 2,
-      province: 'Northern Borders',
+      province: 'Riyadh Province',
     ),
     StrategicAsset(
       id: 'G005',
-      name: 'Royal Saudi Naval Forces HQ',
+      name: 'General Intelligence Presidency (GIP)',
       sector: 'Govt',
-      latitude: 21.3891,
-      longitude: 39.8579,
-      riskLevel: 2,
+      latitude: 24.6900,
+      longitude: 46.6900,
+      riskLevel: 3,
       outputValue: 0,
       repairTier: 2,
-      province: 'Makkah Province',
+      province: 'Riyadh Province',
+    ),
+    StrategicAsset(
+      id: 'G006',
+      name: 'NEOM Project HQ',
+      sector: 'Govt',
+      latitude: 26.5500,
+      longitude: 36.0700,
+      riskLevel: 1,
+      outputValue: 0,
+      repairTier: 1,
+      province: 'Tabuk Province',
     ),
 
-    // ─── DATA SECTOR ─────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════
+    //  FINANCIAL SECTOR (4 assets)
+    // ═══════════════════════════════════════════════════════════════════
+    StrategicAsset(
+      id: 'F001',
+      name: 'King Abdullah Financial District (KAFD)',
+      sector: 'Financial',
+      latitude: 24.7670,
+      longitude: 46.6410,
+      riskLevel: 3,
+      outputValue: 0,
+      repairTier: 3,
+      province: 'Riyadh Province',
+    ),
+    StrategicAsset(
+      id: 'F002',
+      name: 'Saudi Central Bank (SAMA) HQ',
+      sector: 'Financial',
+      latitude: 24.6900,
+      longitude: 46.6850,
+      riskLevel: 3,
+      outputValue: 0,
+      repairTier: 2,
+      province: 'Riyadh Province',
+    ),
+    StrategicAsset(
+      id: 'F003',
+      name: 'Tadawul (Saudi Exchange)',
+      sector: 'Financial',
+      latitude: 24.7640,
+      longitude: 46.6440,
+      riskLevel: 2,
+      outputValue: 0,
+      repairTier: 1,
+      province: 'Riyadh Province',
+    ),
+    StrategicAsset(
+      id: 'F004',
+      name: 'Aramco IPO/HQ (Dhahran Campus)',
+      sector: 'Financial',
+      latitude: 26.2870,
+      longitude: 50.1140,
+      riskLevel: 2,
+      outputValue: 0,
+      repairTier: 1,
+      province: 'Eastern Province',
+    ),
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  DATA / TELECOM SECTOR (5 assets)
+    // ═══════════════════════════════════════════════════════════════════
     StrategicAsset(
       id: 'D001',
       name: 'NEOM Tech Hub Data Center',
@@ -278,6 +772,17 @@ class AssetInventory {
       repairTier: 2,
       province: 'Riyadh Province',
     ),
+    StrategicAsset(
+      id: 'D005',
+      name: 'CITC National Telecom Hub (Riyadh)',
+      sector: 'Data',
+      latitude: 24.7000,
+      longitude: 46.7100,
+      riskLevel: 2,
+      outputValue: 0,
+      repairTier: 1,
+      province: 'Riyadh Province',
+    ),
   ];
 
   /// Assets filtered by sector.
@@ -302,5 +807,14 @@ class AssetInventory {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Asset count summary per sector.
+  static Map<String, int> get sectorCounts {
+    final counts = <String, int>{};
+    for (final a in allAssets) {
+      counts[a.sector] = (counts[a.sector] ?? 0) + 1;
+    }
+    return counts;
   }
 }

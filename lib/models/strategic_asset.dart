@@ -57,6 +57,14 @@ class StrategicAsset {
         return '💧';
       case 'Govt':
         return '🏛️';
+      case 'Military':
+        return '🎖️';
+      case 'Transport':
+        return '🚢';
+      case 'Power':
+        return '🔌';
+      case 'Financial':
+        return '🏦';
       case 'Data':
         return '🖥️';
       default:
