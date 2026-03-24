@@ -42,6 +42,21 @@ class SourceRegistry {
   static List<SourceReference> get preWarSimmeringPeriod =>
       inDateRange(DateTime(2025, 1, 1), DateTime(2025, 2, 27));
 
+  /// Real precursor events from late 2024 that ground the simmering period.
+  static List<SourceReference> get latePrecursorEvents =>
+      allReferences.where((r) {
+        final d = DateTime.tryParse(r.publishedDate);
+        return d != null &&
+            !d.isBefore(DateTime(2024, 7, 1)) &&
+            d.isBefore(DateTime(2025, 1, 1)) &&
+            r.tags.contains('precursor');
+      }).toList()
+        ..sort((a, b) => a.publishedDate.compareTo(b.publishedDate));
+
+  /// All scenario-modeled entries (not verified real events).
+  static List<SourceReference> get scenarioModeledSources =>
+      allReferences.where((r) => r.isScenarioModeled).toList();
+
   /// Sources from the war period — Feb 28, 2025 onward.
   static List<SourceReference> get warPeriodSources =>
       allReferences.where((r) {
@@ -223,19 +238,129 @@ class SourceRegistry {
       credibilityScore: 0.96,
     ),
 
-    // ─── SIMMERING PERIOD (JAN-FEB 2025) ─────────────────────────────
+    // ─── LATE 2024 — REAL PRECURSOR EVENTS ────────────────────────────
 
+    // October 2024 Iran strike on Israel (real event)
     SourceReference._(
-      url: 'https://www.reuters.com/world/middle-east/iran-rhetoric-escalation-gulf-2025/',
-      publishedDate: '2025-01-15',
-      headline: 'Iran\'s Supreme Leader warns of "decisive action" if provocations continue',
+      url: 'https://www.reuters.com/world/middle-east/iran-launches-missiles-israel-us-urges-support-ally-2024-10-01/',
+      publishedDate: '2024-10-01',
+      headline: 'Iran launches barrage of about 200 ballistic missiles at Israel',
       outlet: SourceOutlet.reuters,
+      category: SourceCategory.breakingNews,
+      attackIds: ['HA-2024-003'],
+      dataPoints: ['180-200 ballistic missiles', 'Escalation from April 2024 strike', 'KSA security implications'],
+      credibilityScore: 0.98,
+      tags: ['precursor', 'capability-demonstration', 'escalation-signal'],
+    ),
+    SourceReference._(
+      url: 'https://www.bbc.com/news/world-middle-east-69932939',
+      publishedDate: '2024-10-01',
+      headline: 'Iran fires barrage of missiles at Israel in major escalation',
+      outlet: SourceOutlet.bbc,
+      category: SourceCategory.breakingNews,
+      attackIds: ['HA-2024-003'],
+      dataPoints: ['Largest ballistic missile salvo in Middle East history', 'Sirens across Israel'],
+      credibilityScore: 0.97,
+      tags: ['precursor', 'capability-demonstration'],
+    ),
+
+    // Israeli retaliation on Iran (real event)
+    SourceReference._(
+      url: 'https://www.reuters.com/world/middle-east/israeli-military-says-it-is-striking-iran-2024-10-26/',
+      publishedDate: '2024-10-26',
+      headline: 'Israel strikes Iran in retaliation for missile barrage',
+      outlet: SourceOutlet.reuters,
+      category: SourceCategory.breakingNews,
+      attackIds: [],
+      dataPoints: ['Israeli strikes on Iranian military targets', 'Active escalation cycle'],
+      credibilityScore: 0.98,
+      tags: ['precursor', 'escalation-cycle'],
+    ),
+
+    // Houthi long-range strike on Tel Aviv (real event)
+    SourceReference._(
+      url: 'https://www.reuters.com/world/middle-east/israeli-military-says-it-intercepted-missile-launched-yemen-2024-07-19/',
+      publishedDate: '2024-07-19',
+      headline: 'Houthi drone strikes Tel Aviv area in 1,000-mile attack from Yemen',
+      outlet: SourceOutlet.reuters,
+      category: SourceCategory.breakingNews,
+      attackIds: [],
+      dataPoints: ['1,000-mile strike range demonstrated', 'Houthi long-range capability confirmed'],
+      credibilityScore: 0.97,
+      tags: ['precursor', 'capability-demonstration', 'houthi-escalation'],
+    ),
+
+    // M/T Sounion tanker attack (real event)
+    SourceReference._(
+      url: 'https://www.reuters.com/world/middle-east/oil-tanker-sounion-attacked-red-sea-2024-08-21/',
+      publishedDate: '2024-08-21',
+      headline: 'Oil tanker Sounion attacked in Red Sea, carrying 1 million barrels of crude',
+      outlet: SourceOutlet.reuters,
+      category: SourceCategory.breakingNews,
+      attackIds: ['HA-2024-001'],
+      dataPoints: ['1M barrel crude carrier attacked', 'Environmental catastrophe risk', 'Bab al-Mandab threat sustained'],
+      credibilityScore: 0.97,
+      tags: ['precursor', 'maritime-threat', 'houthi-escalation'],
+    ),
+
+    // Houthi threats to Saudi territory (real event — July 2024)
+    SourceReference._(
+      url: 'https://www.middleeastmonitor.com/20240720-houthi-leader-threatens-saudi-banks-airports-oil-installations/',
+      publishedDate: '2024-07-20',
+      headline: 'Houthi leader threatens Saudi banks, airports and oil installations',
+      outlet: SourceOutlet.aljazeera,
       category: SourceCategory.politicalRhetoric,
       attackIds: [],
-      dataPoints: ['Khamenei speech', 'Explicit threat to Gulf states'],
-      credibilityScore: 0.95,
-      tags: ['precursor', 'rhetoric-escalation', 'simmering'],
+      dataPoints: ['Abdul-Malik al-Houthi named specific Saudi targets', 'Banks, airports, oil installations threatened'],
+      credibilityScore: 0.90,
+      tags: ['precursor', 'rhetoric-escalation', 'houthi-threat-to-ksa'],
     ),
+
+    // Saudi air defense modernization (real event — Feb 2024)
+    SourceReference._(
+      url: 'https://www.defensenews.com/land/2024/02/07/saudi-arabia-signs-3-2b-deal-for-south-korean-air-defense-systems/',
+      publishedDate: '2024-02-07',
+      headline: 'Saudi Arabia signs $3.2B deal for South Korean KM-SAM air defense systems',
+      outlet: SourceOutlet.janes,
+      category: SourceCategory.industryReport,
+      attackIds: [],
+      dataPoints: ['10 KM-SAM systems', '\$3.2B acquisition', 'Layered air defense expansion'],
+      credibilityScore: 0.95,
+      tags: ['precursor', 'defense-posture', 'air-defense-buildup'],
+    ),
+
+    // Saudi integration of 6 advanced air defense systems (real event — Oct 2024)
+    SourceReference._(
+      url: 'https://www.armyrecognition.com/archives/archives-land-defense/land-defense-2024/saudi-arabia-reveals-integration-of-six-advanced-air-defense-systems-to-counter-modern-threats',
+      publishedDate: '2024-10-15',
+      headline: 'Saudi Arabia reveals integration of six advanced air defense systems',
+      outlet: SourceOutlet.janes,
+      category: SourceCategory.industryReport,
+      attackIds: [],
+      dataPoints: ['Chinese Silent Hunter laser', 'Italian ADRIAN system', 'French Crotale NG', '6 systems total'],
+      credibilityScore: 0.93,
+      tags: ['precursor', 'defense-posture', 'air-defense-buildup'],
+    ),
+
+    // Gulf war risk premiums rising (real late-2024 market signal)
+    SourceReference._(
+      url: 'https://www.lloydslist.com/LL1156586/Gulf-war-risk-premiums-topping-double-digit-millions-of-dollars-per-trip',
+      publishedDate: '2024-11-15',
+      headline: 'Gulf war risk premiums topping double-digit millions of dollars per trip',
+      outlet: SourceOutlet.lloyds,
+      category: SourceCategory.industryReport,
+      attackIds: [],
+      dataPoints: ['War risk premiums in double-digit millions per trip', 'Strait of Hormuz risk priced in'],
+      credibilityScore: 0.93,
+      tags: ['precursor', 'market-signal', 'insurance-escalation'],
+    ),
+
+    // ─── SIMMERING PERIOD (JAN-FEB 2025) — SCENARIO MODELING ────────
+    // NOTE: The following entries represent scenario-modeled escalation
+    // signals for the hypothetical Feb 28, 2025 war-start. They are
+    // informed by real late-2024 trends but are not verified real events.
+    // Credibility scores reflect this modeling uncertainty.
+
     SourceReference._(
       url: 'https://www.centcom.mil/MEDIA/PRESS-RELEASES/',
       publishedDate: '2025-01-22',
@@ -244,8 +369,8 @@ class SourceRegistry {
       category: SourceCategory.officialStatement,
       attackIds: [],
       dataPoints: ['THREATCON CHARLIE', 'Additional Patriot deployment to Gulf'],
-      credibilityScore: 0.97,
-      tags: ['precursor', 'force-posture', 'simmering'],
+      credibilityScore: 0.80,
+      tags: ['precursor', 'force-posture', 'simmering', 'scenario-modeled'],
     ),
     SourceReference._(
       url: 'https://www.ft.com/content/iran-irgc-buildup-gulf-2025/',
@@ -255,8 +380,8 @@ class SourceRegistry {
       category: SourceCategory.osint,
       attackIds: [],
       dataPoints: ['TEL deployments confirmed', 'Shahab-3 and Emad launchers identified'],
-      credibilityScore: 0.90,
-      tags: ['precursor', 'military-buildup', 'simmering'],
+      credibilityScore: 0.75,
+      tags: ['precursor', 'military-buildup', 'simmering', 'scenario-modeled'],
     ),
     SourceReference._(
       url: 'https://www.aljazeera.com/news/2025/2/10/houthi-leader-threatens-aramco/',
@@ -266,8 +391,8 @@ class SourceRegistry {
       category: SourceCategory.politicalRhetoric,
       attackIds: [],
       dataPoints: ['Televised threat', 'Named Abqaiq and Ras Tanura specifically'],
-      credibilityScore: 0.91,
-      tags: ['precursor', 'rhetoric-escalation', 'simmering'],
+      credibilityScore: 0.78,
+      tags: ['precursor', 'rhetoric-escalation', 'simmering', 'scenario-modeled'],
     ),
     SourceReference._(
       url: 'https://www.lloydslist.com/LL1149221/Gulf-war-risk-premiums-triple/',
@@ -276,9 +401,9 @@ class SourceRegistry {
       outlet: SourceOutlet.lloyds,
       category: SourceCategory.industryReport,
       attackIds: [],
-      dataPoints: ['Lloyd\'s war risk premium 300% increase', 'Tanker diversions begin'],
-      credibilityScore: 0.93,
-      tags: ['precursor', 'market-signal', 'simmering'],
+      dataPoints: ['Lloyd\'s war risk premium 300% increase from late-2024 baseline', 'Tanker diversions begin'],
+      credibilityScore: 0.75,
+      tags: ['precursor', 'market-signal', 'simmering', 'scenario-modeled'],
     ),
     SourceReference._(
       url: 'https://www.reuters.com/world/middle-east/iran-military-exercises-gulf-2025/',
@@ -288,8 +413,8 @@ class SourceRegistry {
       category: SourceCategory.breakingNews,
       attackIds: [],
       dataPoints: ['IRGC naval exercise', 'Simulated strikes on "enemy oil installations"'],
-      credibilityScore: 0.96,
-      tags: ['precursor', 'military-exercise', 'simmering'],
+      credibilityScore: 0.78,
+      tags: ['precursor', 'military-exercise', 'simmering', 'scenario-modeled'],
     ),
     SourceReference._(
       url: 'https://irna.ir/en/news/supreme-council-authorization-2025/',
@@ -299,8 +424,8 @@ class SourceRegistry {
       category: SourceCategory.officialStatement,
       attackIds: [],
       dataPoints: ['Authorization for "all necessary means"', '96h before Feb 28'],
-      credibilityScore: 0.70,
-      tags: ['precursor', 'authorization', 'simmering', 'critical'],
+      credibilityScore: 0.55,
+      tags: ['precursor', 'authorization', 'simmering', 'critical', 'scenario-modeled'],
     ),
 
     // ─── WAR PERIOD — FEB 28, 2025 ONWARD ──────────────────────────
@@ -525,6 +650,7 @@ class SourceReference {
   String get outletName => outlet.name;
   String get categoryLabel => category.label;
   bool get isPreWar => tags.contains('simmering') || tags.contains('precursor');
+  bool get isScenarioModeled => tags.contains('scenario-modeled');
   bool get isWarPeriod =>
       tags.any((t) => ['war-start', 'opening-salvo', 'escalation',
           'sustained-campaign', 'attrition', 'protracted'].contains(t));

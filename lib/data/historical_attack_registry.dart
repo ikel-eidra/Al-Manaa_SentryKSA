@@ -333,8 +333,45 @@ class HistoricalAttackRegistry {
       ],
     ),
 
+    // October 2024 Iran ballistic strike on Israel — real event
+    HistoricalAttack(
+      id: 'HA-2024-003',
+      name: 'Iran October Ballistic Strike (Israel)',
+      date: '2024-10-01',
+      threatType: ThreatType.ballistic,
+      targetAssetIds: [],
+      targetSectors: [],
+      targetProvinces: [],
+      attribution: 'IRGC',
+      attackVector: '180-200 ballistic missiles launched at Israel in single salvo',
+      outcome: AttackOutcome.intercepted,
+      productionLossBarrels: 0,
+      durationDays: 0,
+      brentSpikeDollars: 5.0,
+      intercepted: true,
+      description:
+          'Iran launched approximately 180-200 ballistic missiles at Israel on '
+          'October 1, 2024 — the largest ballistic missile salvo in Middle East '
+          'history. Most were intercepted by Israeli Arrow/David\'s Sling and US '
+          'THAAD/Aegis systems. Demonstrated Iran\'s willingness to repeat and '
+          'escalate the April 2024 pattern with purely ballistic weapons. '
+          'Israel retaliated with strikes on Iran on October 26, 2024.',
+      lessonLearned:
+          'Iran shifted from mixed drone/missile to predominantly ballistic salvo, '
+          'reducing engagement time for defenders. Validates saturation-attack '
+          'hypothesis for KSA scenario. Confirmed IRGC can sustain 180+ projectile '
+          'launch within single operation.',
+      precursorSignals: [
+        'Israeli assassination of Hezbollah leader Nasrallah (Sep 27)',
+        'IRGC vowed retaliation for "Axis of Resistance" losses',
+        'CENTCOM raised THREATCON across Gulf installations',
+        'Satellite imagery showed TEL mobilization at Iranian launch sites',
+        'IDF and US deployed additional THAAD battery to region',
+      ],
+    ),
+
     // ═══════════════════════════════════════════════════════════════════
-    //  WAR PERIOD — FEB 28, 2025 ONWARD
+    //  WAR PERIOD — FEB 28, 2025 ONWARD (SCENARIO MODELED)
     //  Escalation from regional proxy conflict to direct-action campaign
     // ═══════════════════════════════════════════════════════════════════
 
