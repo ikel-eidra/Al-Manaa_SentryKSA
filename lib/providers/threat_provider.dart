@@ -97,6 +97,30 @@ class ThreatProvider extends ChangeNotifier {
       .where((a) => a.alertLevel == AlertLevel.critical)
       .toList();
 
+  /// Highest attack probability across all assets.
+  double get maxProbability {
+    double maxP = 0;
+    for (final a in _assessments.values) {
+      if (a.attackProbability != null && a.probability > maxP) {
+        maxP = a.probability;
+      }
+    }
+    return maxP;
+  }
+
+  /// Asset with the highest attack probability.
+  ThreatAssessment? get highestProbabilityAsset {
+    ThreatAssessment? best;
+    for (final a in _assessments.values) {
+      if (a.attackProbability != null) {
+        if (best == null || a.probability > best.probability) {
+          best = a;
+        }
+      }
+    }
+    return best;
+  }
+
   /// Assets sorted by threat score descending (for the intel feed).
   List<MapEntry<StrategicAsset, ThreatAssessment>> get rankedThreats {
     final entries = <MapEntry<StrategicAsset, ThreatAssessment>>[];

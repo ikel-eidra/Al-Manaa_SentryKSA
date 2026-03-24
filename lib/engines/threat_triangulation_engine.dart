@@ -1,11 +1,14 @@
 import '../models/threat_event.dart';
 import '../models/strategic_asset.dart';
+import '../engines/probability_engine.dart';
 import 'dart:math';
 
 /// Threat Triangulation Engine.
 /// Monitors trigger events from US (CENTCOM), Israel (IDF), and Iran (IRNA)
 /// to predict KSA impact windows through pattern analysis.
 class ThreatTriangulationEngine {
+  final ProbabilityEngine _probabilityEngine = ProbabilityEngine();
+
   // Weighted source reliability scores
   static const Map<String, double> sourceReliability = {
     'CENTCOM': 0.92,
@@ -95,6 +98,16 @@ class ThreatTriangulationEngine {
       );
     }
 
+    // Enrich assessments with Bayesian probability from historical patterns
+    final probabilities = _probabilityEngine.computeProbabilities(events, assets);
+    for (final asset in assets) {
+      final existing = assessments[asset.id];
+      final prob = probabilities[asset.id];
+      if (existing != null && prob != null) {
+        assessments[asset.id] = existing.withProbability(prob);
+      }
+    }
+
     return assessments;
   }
 
@@ -152,6 +165,9 @@ class ThreatAssessment {
   final List<ThreatEvent> contributingEvents;
   final DateTime assessedAt;
 
+  // Probability and historical context (added by ProbabilityEngine)
+  final AttackProbability? attackProbability;
+
   const ThreatAssessment({
     required this.assetId,
     required this.assetName,
@@ -161,7 +177,23 @@ class ThreatAssessment {
     this.primaryThreat,
     required this.contributingEvents,
     required this.assessedAt,
+    this.attackProbability,
   });
+
+  /// Create a copy enriched with probability data.
+  ThreatAssessment withProbability(AttackProbability prob) {
+    return ThreatAssessment(
+      assetId: assetId,
+      assetName: assetName,
+      threatScore: threatScore,
+      alertLevel: alertLevel,
+      estimatedTimeToImpact: estimatedTimeToImpact,
+      primaryThreat: primaryThreat,
+      contributingEvents: contributingEvents,
+      assessedAt: assessedAt,
+      attackProbability: prob,
+    );
+  }
 
   String get formattedEta {
     if (estimatedTimeToImpact == null) return '--:--:--';
@@ -175,6 +207,10 @@ class ThreatAssessment {
   bool get isImminent =>
       estimatedTimeToImpact != null &&
       estimatedTimeToImpact!.inMinutes < 15;
+
+  double get probability => attackProbability?.probability ?? 0.0;
+  String get probabilityLabel => attackProbability?.probabilityLabel ?? 'N/A';
+  bool get hasPrecedent => attackProbability?.hasPrecedent ?? false;
 }
 
 enum AlertLevel {

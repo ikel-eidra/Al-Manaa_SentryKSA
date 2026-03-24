@@ -173,16 +173,37 @@ class _WarRoomScreenState extends State<WarRoomScreen> {
               if (threatProvider.hasActiveThreat)
                 Positioned(
                   top: 44,
-                  left: 40,
-                  right: 40,
+                  left: 20,
+                  right: 20,
                   child: SafeArea(
                     bottom: false,
-                    child: WarningPanel(
-                      countdown: threatProvider.countdownDisplay,
-                      threatType:
-                          threatProvider.activeThreatType ?? 'UNKNOWN',
-                      targetCorridor:
-                          threatProvider.activeTargetCorridor ?? 'Unknown',
+                    child: Builder(
+                      builder: (_) {
+                        // Find highest-probability assessment for context
+                        final topAssessment = threatProvider
+                            .criticalAssessments
+                            .where((a) => a.attackProbability != null)
+                            .toList()
+                          ..sort((a, b) =>
+                              b.probability.compareTo(a.probability));
+                        final prob = topAssessment.isNotEmpty
+                            ? topAssessment.first.attackProbability
+                            : null;
+
+                        return WarningPanel(
+                          countdown: threatProvider.countdownDisplay,
+                          threatType:
+                              threatProvider.activeThreatType ?? 'UNKNOWN',
+                          targetCorridor:
+                              threatProvider.activeTargetCorridor ??
+                                  'Unknown',
+                          probability: prob?.probability,
+                          probabilityLabel: prob?.probabilityLabel,
+                          historicalPrecedent: prob?.historicalPrecedent,
+                          matchedPrecursors:
+                              prob?.matchedPrecursors ?? const [],
+                        );
+                      },
                     ),
                   ),
                 ),
