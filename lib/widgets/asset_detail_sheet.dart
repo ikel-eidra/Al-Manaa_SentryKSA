@@ -6,6 +6,7 @@ import '../providers/threat_provider.dart';
 import '../engines/threat_triangulation_engine.dart';
 import '../engines/probability_engine.dart';
 import '../data/historical_attack_registry.dart';
+import '../data/source_registry.dart';
 
 /// Bottom sheet showing detailed asset info, probability analysis,
 /// historical attack precedents, economic impact, and recovery timeline.
@@ -424,10 +425,83 @@ class AssetDetailSheet extends StatelessWidget {
                     ],
                   ),
                 ],
+
+                // Source provenance
+                if (attack.isSourceVerified) ...[
+                  const SizedBox(height: 6),
+                  _buildSourceProvenance(attack.sourceReferences),
+                ],
               ],
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildSourceProvenance(List<SourceReference> sources) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.green.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.green.withOpacity(0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.verified, color: Colors.green[400], size: 10),
+              const SizedBox(width: 4),
+              Text(
+                'VERIFIED SOURCES (${sources.length})',
+                style: TextStyle(
+                  color: Colors.green[400],
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ...sources.take(3).map((src) => Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Row(
+                  children: [
+                    Text(
+                      src.hash.substring(0, 8),
+                      style: TextStyle(
+                        color: Colors.green[700],
+                        fontSize: 7,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '${src.outlet.displayName} — ${src.headline}',
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 8,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+          if (sources.length > 3)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                '+${sources.length - 3} more sources',
+                style: TextStyle(color: Colors.grey[600], fontSize: 7),
+              ),
+            ),
+        ],
       ),
     );
   }

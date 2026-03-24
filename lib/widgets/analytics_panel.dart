@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../engines/threat_triangulation_engine.dart';
+import '../data/historical_attack_registry.dart';
 
-/// Bottom panel showing live strike statistics, economic impact, and prescriptive advice.
+/// Bottom panel showing live strike statistics, war phase context,
+/// economic impact, and prescriptive advice.
 /// Fully data-driven from ThreatProvider aggregates.
 class AnalyticsPanel extends StatelessWidget {
   final int totalStrikes;
@@ -12,6 +14,7 @@ class AnalyticsPanel extends StatelessWidget {
   final int assetsUnderThreat;
   final double totalDailyLoss;
   final List<ThreatAssessment> criticalAssessments;
+  final double maxProbability;
 
   const AnalyticsPanel({
     super.key,
@@ -23,6 +26,7 @@ class AnalyticsPanel extends StatelessWidget {
     required this.assetsUnderThreat,
     required this.totalDailyLoss,
     required this.criticalAssessments,
+    this.maxProbability = 0,
   });
 
   @override
@@ -58,7 +62,11 @@ class AnalyticsPanel extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
+
+          // ── WAR PHASE BANNER ─────────────────────────────────
+          _buildWarPhaseBanner(),
+          const SizedBox(height: 8),
 
           // Primary stats row
           Row(
@@ -218,6 +226,91 @@ class AnalyticsPanel extends StatelessWidget {
     }
     return 'ADVICE: Continue routine monitoring. All systems nominal. '
         'Patriot readiness: GREEN.';
+  }
+
+  Widget _buildWarPhaseBanner() {
+    final phase = HistoricalAttackRegistry.currentWarPhase;
+    final dayN = HistoricalAttackRegistry.daysSinceWarStart;
+    final warAttacks = HistoricalAttackRegistry.warPeriodAttacks.length;
+    final warInterceptRate = HistoricalAttackRegistry.warPeriodInterceptRate;
+    final phaseColor = phase == WarPhase.protracted || phase == WarPhase.attrition
+        ? Colors.red
+        : phase == WarPhase.sustainedCampaign || phase == WarPhase.escalation
+            ? Colors.orange
+            : Colors.amber;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: phaseColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: phaseColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          // Day count
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: phaseColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              'DAY $dayN',
+              style: TextStyle(
+                color: phaseColor,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Phase label
+          Expanded(
+            child: Text(
+              phase.label,
+              style: TextStyle(
+                color: phaseColor,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ),
+          // War-period stats
+          Text(
+            '$warAttacks strikes | ${warInterceptRate.toStringAsFixed(0)}% int.',
+            style: TextStyle(
+              color: Colors.grey[500],
+              fontSize: 8,
+            ),
+          ),
+          // Max probability badge
+          if (maxProbability > 10) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: maxProbability >= 60
+                    ? Colors.red.withOpacity(0.2)
+                    : Colors.orange.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(
+                'P:${maxProbability.toStringAsFixed(0)}%',
+                style: TextStyle(
+                  color: maxProbability >= 60 ? Colors.red : Colors.orange,
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _statItem(String value, String label, Color valueColor) {

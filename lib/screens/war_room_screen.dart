@@ -260,6 +260,7 @@ class _WarRoomScreenState extends State<WarRoomScreen> {
                   totalDailyLoss: threatProvider.totalDailyLoss,
                   criticalAssessments:
                       threatProvider.criticalAssessments,
+                  maxProbability: threatProvider.maxProbability,
                 ),
               ),
 
