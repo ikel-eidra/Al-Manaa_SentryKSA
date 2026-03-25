@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:provider/provider.dart';
+import '../../config/map_styles.dart';
 import '../../models/civilian_report.dart';
 import '../../providers/civilian_provider.dart';
 
@@ -15,8 +17,108 @@ import '../../providers/civilian_provider.dart';
 /// This is the civilian counterpart to the classified war room map.
 /// It shows ONLY declassified, validated information — no trajectory
 /// projections, no source intelligence, no asset locations.
-class CivilianMapScreen extends StatelessWidget {
+class CivilianMapScreen extends StatefulWidget {
   const CivilianMapScreen({super.key});
+
+  @override
+  State<CivilianMapScreen> createState() => _CivilianMapScreenState();
+}
+
+class _CivilianMapScreenState extends State<CivilianMapScreen> {
+  MapLibreMapController? _mapController;
+  bool _layersInitialized = false;
+
+  @override
+  void dispose() {
+    _mapController = null;
+    super.dispose();
+  }
+
+  Future<void> _onMapCreated(MapLibreMapController controller) async {
+    _mapController = controller;
+  }
+
+  Future<void> _onStyleLoaded() async {
+    final c = _mapController;
+    if (c == null) return;
+
+    // ── Add civilian report points as GeoJSON source ──────────────
+    await c.addGeoJsonSource('civilian-reports', const {
+      'type': 'FeatureCollection',
+      'features': [],
+    });
+
+    // ── Heatmap layer for damage density ──────────────────────────
+    await c.addHeatmapLayer('civilian-reports', 'damage-heatmap', HeatmapLayerProperties(
+      heatmapWeight: ['get', 'intensity'],
+      heatmapRadius: 30,
+      heatmapColor: [
+        'interpolate', ['linear'], ['heatmap-density'],
+        0, 'rgba(0,0,0,0)',
+        0.2, 'rgba(0,255,255,0.3)',
+        0.4, 'rgba(255,235,59,0.5)',
+        0.6, 'rgba(255,152,0,0.7)',
+        0.8, 'rgba(244,67,54,0.8)',
+        1.0, 'rgba(213,0,0,0.9)',
+      ],
+    ));
+
+    // ── Circle layer for individual report dots ───────────────────
+    await c.addCircleLayer('civilian-reports', 'reports-circles', CircleLayerProperties(
+      circleColor: ['get', 'color'],
+      circleRadius: ['get', 'size'],
+      circleOpacity: 0.6,
+      circleStrokeColor: ['get', 'color'],
+      circleStrokeWidth: 1.5,
+    ));
+
+    _layersInitialized = true;
+    _updateReportData();
+  }
+
+  void _updateReportData() {
+    if (!_layersInitialized || _mapController == null) return;
+
+    final provider = context.read<CivilianProvider>();
+    final features = provider.recentReports.map((report) {
+      final color = _damageColor(report);
+      final size = report.isHighValue ? 8.0 : 5.0;
+      final intensity = report.isHighValue ? 1.0 : 0.5;
+
+      return {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [report.longitude, report.latitude],
+        },
+        'properties': {
+          'color': color,
+          'size': size,
+          'intensity': intensity,
+        },
+      };
+    }).toList();
+
+    _mapController?.setGeoJsonSource('civilian-reports', {
+      'type': 'FeatureCollection',
+      'features': features,
+    });
+  }
+
+  String _damageColor(CivilianReport report) {
+    switch (report.damageLevel) {
+      case DamageLevel.catastrophic:
+        return '#F44336';
+      case DamageLevel.severe:
+        return '#FF9800';
+      case DamageLevel.moderate:
+        return '#FFC107';
+      case DamageLevel.minor:
+        return '#8BC34A';
+      case DamageLevel.none:
+        return '#00BCD4';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,11 +149,27 @@ class CivilianMapScreen extends StatelessWidget {
       ),
       body: Consumer<CivilianProvider>(
         builder: (context, provider, _) {
+          // Update map data when provider changes
+          if (_layersInitialized) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _updateReportData());
+          }
+
           return Stack(
             children: [
-              // ── MAP PLACEHOLDER ──────────────────────────────
-              // In production: Google Maps / Mapbox with heatmap overlay
-              _MapPlaceholder(provider: provider),
+              // ── MAPLIBRE GL MAP ────────────────────────────────
+              MapLibreMap(
+                initialCameraPosition: const CameraPosition(
+                  target: LatLng(24.7, 46.6),
+                  zoom: 6.0,
+                ),
+                styleString: MapStyles.warRoomDark,
+                onMapCreated: _onMapCreated,
+                onStyleLoadedCallback: _onStyleLoaded,
+                myLocationEnabled: true,
+                myLocationTrackingMode: MyLocationTrackingMode.none,
+                compassEnabled: true,
+                tiltGesturesEnabled: true,
+              ),
 
               // ── LEGEND ───────────────────────────────────────
               Positioned(
@@ -138,116 +256,6 @@ class CivilianMapScreen extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-// ─── MAP PLACEHOLDER ─────────────────────────────────────────────────
-
-class _MapPlaceholder extends StatelessWidget {
-  final CivilianProvider provider;
-  const _MapPlaceholder({required this.provider});
-
-  @override
-  Widget build(BuildContext context) {
-    // In production, this would be a Google Maps / Mapbox widget
-    // with heatmap tile overlay from TrajectoryValidationEngine.generateDamageHeatmap()
-    return Container(
-      color: const Color(0xFF0d1117),
-      child: Stack(
-        children: [
-          // Grid lines to simulate map
-          CustomPaint(
-            size: Size.infinite,
-            painter: _GridPainter(),
-          ),
-
-          // Plot civilian reports as dots
-          ...provider.recentReports.map((report) {
-            // Simplified — in production, project lat/lng to screen coords
-            return Positioned(
-              left: _lngToX(report.longitude, context),
-              top: _latToY(report.latitude, context),
-              child: _ReportDot(report: report),
-            );
-          }),
-
-          // Center label
-          if (provider.recentReports.isEmpty)
-            const Center(
-              child: Text(
-                'MAP VIEW\n\nGoogle Maps / Mapbox integration\nwith crowd-sourced damage heatmap',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white24, fontSize: 12),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // Simplified coordinate projection (placeholder)
-  double _lngToX(double lng, BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    // Center on KSA (lng ~45)
-    return ((lng - 38.0) / 14.0 * width).clamp(0, width - 20);
-  }
-
-  double _latToY(double lat, BuildContext context) {
-    final height = MediaQuery.of(context).size.height;
-    // Center on KSA (lat ~24)
-    return (((30.0 - lat) / 12.0) * height).clamp(0, height - 100);
-  }
-}
-
-class _GridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(0.03)
-      ..strokeWidth = 0.5;
-
-    const spacing = 40.0;
-    for (double x = 0; x < size.width; x += spacing) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = 0; y < size.height; y += spacing) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _ReportDot extends StatelessWidget {
-  final CivilianReport report;
-  const _ReportDot({required this.report});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Color(report.damageColorValue);
-    final size = report.isHighValue ? 16.0 : 10.0;
-
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.6),
-        shape: BoxShape.circle,
-        border: Border.all(color: color, width: 1.5),
-        boxShadow: [
-          BoxShadow(color: color.withOpacity(0.3), blurRadius: 8),
-        ],
-      ),
-      child: report.isHighValue
-          ? Center(
-              child: Text(
-                report.typeIcon,
-                style: const TextStyle(fontSize: 8),
-              ),
-            )
-          : null,
     );
   }
 }

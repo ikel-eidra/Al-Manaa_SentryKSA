@@ -206,7 +206,7 @@ Single-screen command dashboard with 12 composited layers:
 
 | Layer | Component | Function |
 |:-----:|-----------|----------|
-| 1-5 | Google Maps | Satellite base + heat zones + economic blast radii + threat circles + trajectory polylines |
+| 1-5 | MapLibre GL | Dark/satellite base with 3D terrain + buildings + heat zones + economic blast radii + threat circles + trajectory polylines |
 | 6-7 | Markers | Color-coded asset markers + threat event origin markers |
 | 8 | Live Ticker | Scrolling breaking-news intelligence feed |
 | 9 | Trajectory Overlay | Per-inbound ETA cards with P(strike) progress bar |
@@ -265,6 +265,8 @@ Full English/Arabic localization with 80+ translation keys covering all UI text,
 ```
 lib/
 ├── main.dart                                 # Dual-platform entry: web→war room, mobile→civilian
+├── config/
+│   └── map_styles.dart                       # MapLibre tile source URLs (OpenFreeMap, MapTiler, self-hosted)
 ├── data/
 │   ├── asset_inventory.dart                  # 60+ strategic assets (8 sectors) with coordinates
 │   ├── historical_attack_registry.dart       # 24 attacks (2019-2026) + war phase tracker
@@ -316,7 +318,7 @@ test/
     └── threat_triangulation_engine_test.dart # Correlation, corroboration, alerts
 ```
 
-**33 production files | 4 test suites | 9,562 lines of Dart | 368 lines of tests**
+**34 production files | 4 test suites | ~9,800 lines of Dart | 368 lines of tests**
 
 ---
 
@@ -325,7 +327,7 @@ test/
 | Category | Packages |
 |----------|----------|
 | State Management | `provider`, `flutter_bloc`, `equatable` |
-| Maps & Location | `google_maps_flutter`, `geolocator`, `geocoding` |
+| Maps & Location | `maplibre_gl` (open-source, 3D, no API key), `geolocator`, `geocoding` |
 | Networking | `http`, `dio`, `web_socket_channel` |
 | Storage | `shared_preferences`, `hive`, `hive_flutter` |
 | Visualization | `fl_chart`, `shimmer`, `lottie`, `google_fonts` |
@@ -352,10 +354,7 @@ flutter run \
 | `SENTRY_WS_URL` | `wss://ws.sentryksa.local/v1/threats` | Live WebSocket feed |
 | `SCRAPER_API_URL` | `https://api.sentryksa.local/scraper/v1` | OSINT scraper endpoint |
 
-**Google Maps:** Add your API key to `android/app/src/main/AndroidManifest.xml`:
-```xml
-<meta-data android:name="com.google.android.geo.API_KEY" android:value="YOUR_KEY"/>
-```
+**Map tiles:** MapLibre GL uses [OpenFreeMap](https://openfreemap.org) by default (free, no API key). For satellite/hybrid imagery, set a [MapTiler](https://www.maptiler.com) key in `lib/config/map_styles.dart`. For production, self-host tiles with `martin` or PMTiles on S3 for full control and zero external dependencies.
 
 ---
 

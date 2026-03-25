@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:provider/provider.dart';
+import '../config/map_styles.dart';
 import '../providers/threat_provider.dart';
 import '../providers/map_provider.dart';
 import '../data/asset_inventory.dart';
@@ -16,13 +17,13 @@ import '../models/strategic_asset.dart';
 /// Main War Room Dashboard — the primary command screen of SentryKSA.
 ///
 /// Layers (bottom to top):
-///   1. Google Maps satellite/hybrid base
-///   2. Risk heat zones (8/16/24 km circles per asset)
-///   3. Economic impact blast radii (purple rings)
-///   4. Threat event origin circles (red/orange)
-///   5. Trajectory polylines (dashed arcs from origin → target)
-///   6. Asset markers (color-coded by alert level)
-///   7. Threat event origin markers
+///   1. MapLibre GL dark/satellite base with 3D terrain + buildings
+///   2. Risk heat zones (8/16/24 km GeoJSON polygon circles per asset)
+///   3. Economic impact blast radii (purple polygon rings)
+///   4. Threat event origin circles (circle layer)
+///   5. Trajectory polylines (dashed line layer arcs from origin → target)
+///   6. Asset markers (symbol layer with colored icons)
+///   7. Threat event origin markers (symbol layer)
 ///   8. Live intelligence ticker (top bar)
 ///   9. Inbound threat overlay (top-left cards with ETA)
 ///  10. Emergency countdown panel (center-top, only during imminent threat)
@@ -43,7 +44,30 @@ class _WarRoomScreenState extends State<WarRoomScreen> {
       final threatProvider = context.read<ThreatProvider>();
       threatProvider.loadInitialData(AssetInventory.allAssets);
       threatProvider.startMonitoring();
+      threatProvider.addListener(_onThreatDataChanged);
     });
+  }
+
+  @override
+  void dispose() {
+    context.read<ThreatProvider>().removeListener(_onThreatDataChanged);
+    super.dispose();
+  }
+
+  /// Push latest threat data into the map layers whenever ThreatProvider updates.
+  void _onThreatDataChanged() {
+    final mapProvider = context.read<MapProvider>();
+    final threatProvider = context.read<ThreatProvider>();
+    final assets = AssetInventory.allAssets;
+
+    mapProvider.updateHeatZones(assets, threatProvider.assessments);
+    mapProvider.updateImpactSites(
+      assets, threatProvider.impactReports, threatProvider.assessments,
+    );
+    mapProvider.updateThreatEventCircles(threatProvider.events);
+    mapProvider.updateTrajectories(threatProvider.events, assets);
+    mapProvider.updateAssetMarkers(assets, threatProvider.assessments);
+    mapProvider.updateThreatEventMarkers(threatProvider.events);
   }
 
   void _onAssetTapped(StrategicAsset asset) {
@@ -62,6 +86,17 @@ class _WarRoomScreenState extends State<WarRoomScreen> {
     );
   }
 
+  /// Handle taps on asset symbol markers to open the detail sheet.
+  void _onSymbolTapped(Symbol symbol) {
+    final data = symbol.data;
+    if (data == null || data['id'] == null) return;
+    final assetId = data['id'] as String;
+    final asset = AssetInventory.findById(assetId);
+    if (asset != null) {
+      _onAssetTapped(asset);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -70,67 +105,31 @@ class _WarRoomScreenState extends State<WarRoomScreen> {
         builder: (context, threatProvider, mapProvider, _) {
           final assets = AssetInventory.allAssets;
           final assessments = threatProvider.assessments;
-          final impactReports = threatProvider.impactReports;
           final events = threatProvider.events;
-
-          // ── Build all map overlays ──────────────────────────────
-
-          // Heat zones (risk level circles)
-          final heatZones = mapProvider.buildHeatZones(assets, assessments);
-
-          // Economic impact blast radii
-          final impactCircles = mapProvider.buildImpactSites(
-            assets, impactReports, assessments,
-          );
-
-          // Threat event detection circles
-          final threatCircles = mapProvider.buildThreatEventCircles(events);
-
-          // Merge all circles
-          final allCircles = <Circle>{
-            ...heatZones,
-            ...impactCircles,
-            ...threatCircles,
-          };
-
-          // Trajectory polylines
-          final trajectories = mapProvider.buildThreatTrajectories(
-            events, assets,
-          );
-
-          // Asset markers (color by alert level)
-          final assetMarkers = mapProvider.buildMarkers(
-            assets, assessments, _onAssetTapped,
-          );
-
-          // Threat event origin markers
-          final eventMarkers = mapProvider.buildThreatEventMarkers(events);
-
-          // Merge all markers
-          final allMarkers = <Marker>{
-            ...assetMarkers,
-            ...eventMarkers,
-          };
 
           return Stack(
             children: [
-              // ── LAYER 1-7: GOOGLE MAP ──────────────────────────
-              GoogleMap(
+              // ── LAYER 1-7: MAPLIBRE GL MAP ────────────────────────
+              MapLibreMap(
                 initialCameraPosition: const CameraPosition(
                   target: LatLng(24.7, 46.6),
                   zoom: 5.5,
                 ),
-                mapType: mapProvider.mapType,
-                onMapCreated: mapProvider.setMapController,
-                circles: allCircles,
-                markers: allMarkers,
-                polylines: trajectories,
+                styleString: mapProvider.currentStyle,
+                onMapCreated: (controller) async {
+                  await mapProvider.setMapController(controller);
+                  controller.onSymbolTapped.add(_onSymbolTapped);
+                },
+                onStyleLoadedCallback: () async {
+                  // Re-initialize layers when style changes (all sources/layers are cleared on style swap)
+                  await mapProvider.initializeLayers();
+                  _onThreatDataChanged(); // Re-populate data
+                },
                 myLocationEnabled: !kIsWeb,
-                myLocationButtonEnabled: false,
-                zoomControlsEnabled: false,
+                myLocationTrackingMode: MyLocationTrackingMode.none,
                 compassEnabled: true,
-                mapToolbarEnabled: false,
-                padding: const EdgeInsets.only(bottom: 180, top: 32),
+                tiltGesturesEnabled: true,
+                rotateGesturesEnabled: true,
               ),
 
               // ── LAYER 8: LIVE INTELLIGENCE TICKER ──────────────
@@ -222,11 +221,7 @@ class _WarRoomScreenState extends State<WarRoomScreen> {
                   onToggleThreatArcs: mapProvider.toggleThreatArcs,
                   onToggleImpactSites: mapProvider.toggleImpactSites,
                   onToggleAssetLabels: mapProvider.toggleAssetLabels,
-                  onToggleMapType: () => mapProvider.setMapType(
-                    mapProvider.mapType == MapType.hybrid
-                        ? MapType.normal
-                        : MapType.hybrid,
-                  ),
+                  onToggleMapType: mapProvider.toggleMapStyle,
                 ),
               ),
 

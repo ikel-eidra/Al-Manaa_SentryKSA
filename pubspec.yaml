@@ -15,9 +15,8 @@ dependencies:
   flutter_bloc: ^8.1.3
   equatable: ^2.0.5
 
-  # Maps & Location
-  google_maps_flutter: ^2.5.3
-  google_maps_flutter_web: ^0.5.7
+  # Maps & Location (MapLibre GL — open-source, 3D terrain, no API key required)
+  maplibre_gl: ^0.20.0
   geolocator: ^10.1.0
   geocoding: ^2.1.1
 

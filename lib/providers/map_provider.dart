@@ -1,15 +1,23 @@
-import 'dart:ui';
+import 'dart:math';
+import 'dart:ui' as ui;
+
 import 'package:flutter/foundation.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter/material.dart';
+import 'package:maplibre_gl/maplibre_gl.dart';
+
+import '../config/map_styles.dart';
 import '../models/strategic_asset.dart';
 import '../models/threat_event.dart';
 import '../models/impact_report.dart';
 import '../engines/threat_triangulation_engine.dart';
 
 /// State provider for GIS heatmap, threat trajectories, and map interactions.
+///
+/// Uses MapLibre GL's style-based rendering: GeoJSON sources + style layers.
+/// Layers persist on the map; only the source data changes on refresh.
 class MapProvider extends ChangeNotifier {
-  GoogleMapController? _mapController;
-  MapType _mapType = MapType.hybrid;
+  MapLibreMapController? _mapController;
+  String _currentStyle = MapStyles.warRoomDark;
   double _zoom = 5.5;
   LatLng _center = const LatLng(24.7, 46.6); // KSA center
   String? _selectedAssetId;
@@ -21,9 +29,11 @@ class MapProvider extends ChangeNotifier {
   bool _showAssetLabels = true;
   int _heatZoneFilter = 0; // 0 = all, 1/2/3 = specific level
 
+  bool _sourcesInitialized = false;
+
   // Getters
-  GoogleMapController? get mapController => _mapController;
-  MapType get mapType => _mapType;
+  MapLibreMapController? get mapController => _mapController;
+  String get currentStyle => _currentStyle;
   double get zoom => _zoom;
   LatLng get center => _center;
   String? get selectedAssetId => _selectedAssetId;
@@ -32,39 +42,169 @@ class MapProvider extends ChangeNotifier {
   bool get showImpactSites => _showImpactSites;
   bool get showAssetLabels => _showAssetLabels;
 
-  void setMapController(GoogleMapController controller) {
+  /// Called when MapLibreMap is created. Sets up all GeoJSON sources and layers.
+  Future<void> setMapController(MapLibreMapController controller) async {
     _mapController = controller;
     notifyListeners();
   }
 
-  void setMapType(MapType type) {
-    _mapType = type;
+  /// Initialize all GeoJSON sources and style layers on the map.
+  /// Must be called after style is loaded (from onStyleLoadedCallback).
+  Future<void> initializeLayers() async {
+    final c = _mapController;
+    if (c == null) return;
+
+    _sourcesInitialized = false;
+
+    // ── Register marker icons ──────────────────────────────────────
+    await _registerMarkerIcons(c);
+
+    // ── Add empty GeoJSON sources ──────────────────────────────────
+    const empty = <String, dynamic>{
+      'type': 'FeatureCollection',
+      'features': [],
+    };
+    await c.addGeoJsonSource('heat-zones-source', empty);
+    await c.addGeoJsonSource('impact-sites-source', empty);
+    await c.addGeoJsonSource('threat-circles-source', empty);
+    await c.addGeoJsonSource('trajectories-source', empty);
+    await c.addGeoJsonSource('asset-markers-source', empty);
+    await c.addGeoJsonSource('threat-markers-source', empty);
+
+    // ── Add layers in Z-order (bottom → top) ───────────────────────
+
+    // Layer 1-2: Heat zone fills
+    await c.addFillLayer('heat-zones-source', 'heat-zones-fill', FillLayerProperties(
+      fillColor: ['get', 'color'],
+      fillOpacity: ['get', 'opacity'],
+    ));
+    await c.addLineLayer('heat-zones-source', 'heat-zones-stroke', LineLayerProperties(
+      lineColor: ['get', 'strokeColor'],
+      lineWidth: ['get', 'strokeWidth'],
+    ));
+
+    // Layer 3: Impact site fills (purple/magenta economic blast radii)
+    await c.addFillLayer('impact-sites-source', 'impact-sites-fill', FillLayerProperties(
+      fillColor: ['get', 'color'],
+      fillOpacity: ['get', 'opacity'],
+    ));
+    await c.addLineLayer('impact-sites-source', 'impact-sites-stroke', LineLayerProperties(
+      lineColor: ['get', 'strokeColor'],
+      lineWidth: 2,
+      lineOpacity: 0.53,
+    ));
+
+    // Layer 4: Threat event origin circles
+    await c.addCircleLayer('threat-circles-source', 'threat-circles-layer', CircleLayerProperties(
+      circleRadius: ['get', 'radius'],
+      circleColor: ['get', 'color'],
+      circleOpacity: ['get', 'opacity'],
+      circleStrokeColor: ['get', 'strokeColor'],
+      circleStrokeWidth: ['get', 'strokeWidth'],
+    ));
+
+    // Layer 5: Trajectory polylines (dashed arcs from origin → target)
+    await c.addLineLayer('trajectories-source', 'trajectories-layer', LineLayerProperties(
+      lineColor: ['get', 'color'],
+      lineWidth: ['get', 'width'],
+      lineDasharray: [20, 10],
+    ));
+
+    // Layer 6: Asset markers (symbol layer with colored icons)
+    await c.addSymbolLayer('asset-markers-source', 'asset-markers-layer', SymbolLayerProperties(
+      iconImage: ['get', 'icon'],
+      iconSize: 1.0,
+      iconAllowOverlap: true,
+      symbolSortKey: ['get', 'zIndex'],
+      textField: ['get', 'label'],
+      textSize: 10,
+      textOffset: const [0.0, 1.8],
+      textColor: '#FFFFFF',
+      textHaloColor: '#000000',
+      textHaloWidth: 1,
+    ));
+
+    // Layer 7: Threat event markers
+    await c.addSymbolLayer('threat-markers-source', 'threat-markers-layer', SymbolLayerProperties(
+      iconImage: ['get', 'icon'],
+      iconSize: 1.0,
+      iconAllowOverlap: true,
+      iconOpacity: ['get', 'opacity'],
+      symbolSortKey: ['get', 'zIndex'],
+    ));
+
+    // ── 3D buildings (rendered at high zoom from base style) ───────
+    try {
+      await c.addLayer('composite', '3d-buildings', FillExtrusionLayerProperties(
+        fillExtrusionColor: '#1a1a2e',
+        fillExtrusionHeight: ['get', 'height'],
+        fillExtrusionBase: ['get', 'min_height'],
+        fillExtrusionOpacity: 0.6,
+      ), sourceLayer: 'building');
+    } catch (_) {
+      // Base style may not include building source layer — safe to skip
+    }
+
+    _sourcesInitialized = true;
     notifyListeners();
   }
 
-  void toggleHeatZones() {
-    _showHeatZones = !_showHeatZones;
+  /// Register colored marker icons for asset and threat symbols.
+  Future<void> _registerMarkerIcons(MapLibreMapController c) async {
+    const markerColors = <String, Color>{
+      'marker-red': Color(0xFFF44336),
+      'marker-orange': Color(0xFFFF9800),
+      'marker-yellow': Color(0xFFFFEB3B),
+      'marker-rose': Color(0xFFE91E63),
+      'marker-violet': Color(0xFF9C27B0),
+      'marker-cyan': Color(0xFF00BCD4),
+    };
+
+    for (final entry in markerColors.entries) {
+      final bytes = await _renderMarkerIcon(entry.value);
+      await c.addImage(entry.key, bytes);
+    }
+  }
+
+  /// Render a colored circle marker to PNG bytes for use as a symbol icon.
+  Future<Uint8List> _renderMarkerIcon(Color color, {int size = 48}) async {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final center = Offset(size / 2, size / 2);
+    final radius = size / 2 - 2;
+
+    // Filled circle
+    canvas.drawCircle(center, radius, Paint()..color = color);
+    // White border
+    canvas.drawCircle(center, radius, Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2);
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(size, size);
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    return bytes!.buffer.asUint8List();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  STYLE & CAMERA
+  // ═══════════════════════════════════════════════════════════════════
+
+  /// Switch between map styles (dark, streets, satellite).
+  void setMapStyle(String styleUrl) {
+    _currentStyle = styleUrl;
+    // Style change will trigger onStyleLoadedCallback → re-initialize layers
     notifyListeners();
   }
 
-  void toggleThreatArcs() {
-    _showThreatArcs = !_showThreatArcs;
-    notifyListeners();
-  }
-
-  void toggleImpactSites() {
-    _showImpactSites = !_showImpactSites;
-    notifyListeners();
-  }
-
-  void toggleAssetLabels() {
-    _showAssetLabels = !_showAssetLabels;
-    notifyListeners();
-  }
-
-  void setHeatZoneFilter(int level) {
-    _heatZoneFilter = level;
-    notifyListeners();
+  /// Toggle between dark (war room) and street (reference) styles.
+  void toggleMapStyle() {
+    setMapStyle(
+      _currentStyle == MapStyles.warRoomDark
+          ? MapStyles.streets
+          : MapStyles.warRoomDark,
+    );
   }
 
   void selectAsset(String? assetId) {
@@ -93,16 +233,59 @@ class MapProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ─── HEAT ZONES ──────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════
+  //  LAYER VISIBILITY TOGGLES
+  // ═══════════════════════════════════════════════════════════════════
 
-  /// Generate circles for the 3-level risk zone heatmap around each asset.
-  Set<Circle> buildHeatZones(
+  void toggleHeatZones() {
+    _showHeatZones = !_showHeatZones;
+    _setLayerVisibility('heat-zones-fill', _showHeatZones);
+    _setLayerVisibility('heat-zones-stroke', _showHeatZones);
+    notifyListeners();
+  }
+
+  void toggleThreatArcs() {
+    _showThreatArcs = !_showThreatArcs;
+    _setLayerVisibility('threat-circles-layer', _showThreatArcs);
+    _setLayerVisibility('trajectories-layer', _showThreatArcs);
+    _setLayerVisibility('threat-markers-layer', _showThreatArcs);
+    notifyListeners();
+  }
+
+  void toggleImpactSites() {
+    _showImpactSites = !_showImpactSites;
+    _setLayerVisibility('impact-sites-fill', _showImpactSites);
+    _setLayerVisibility('impact-sites-stroke', _showImpactSites);
+    notifyListeners();
+  }
+
+  void toggleAssetLabels() {
+    _showAssetLabels = !_showAssetLabels;
+    _setLayerVisibility('asset-markers-layer', _showAssetLabels);
+    notifyListeners();
+  }
+
+  void setHeatZoneFilter(int level) {
+    _heatZoneFilter = level;
+    notifyListeners();
+  }
+
+  void _setLayerVisibility(String layerId, bool visible) {
+    _mapController?.setLayerVisibility(layerId, visible);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  DATA UPDATE METHODS (push new GeoJSON to existing sources)
+  // ═══════════════════════════════════════════════════════════════════
+
+  /// Update heat zone circles (3-level risk rings around each asset).
+  Future<void> updateHeatZones(
     List<StrategicAsset> assets,
     Map<String, ThreatAssessment>? assessments,
-  ) {
-    if (!_showHeatZones) return {};
+  ) async {
+    if (!_sourcesInitialized) return;
 
-    final circles = <Circle>{};
+    final features = <Map<String, dynamic>>[];
 
     for (final asset in assets) {
       if (_heatZoneFilter != 0 && asset.riskLevel != _heatZoneFilter) continue;
@@ -114,59 +297,51 @@ class MapProvider extends ChangeNotifier {
       final isCritical =
           assessment != null && assessment.alertLevel == AlertLevel.critical;
 
-      // Outer zone (Yellow) - 24km radius
-      circles.add(Circle(
-        circleId: CircleId('${asset.id}_yellow'),
-        center: LatLng(asset.latitude, asset.longitude),
-        radius: 24000,
-        fillColor: const Color(0x20FFEB3B),
-        strokeWidth: 0,
+      // Outer zone (Yellow) - 24km
+      features.add(_circleFeature(
+        asset.latitude, asset.longitude, 24000,
+        color: '#FFEB3B', opacity: 0.125,
+        strokeColor: 'transparent', strokeWidth: 0,
       ));
 
-      // Middle zone (Orange) - 16km radius
-      circles.add(Circle(
-        circleId: CircleId('${asset.id}_orange'),
-        center: LatLng(asset.latitude, asset.longitude),
-        radius: 16000,
-        fillColor: const Color(0x30FF9800),
-        strokeWidth: 0,
+      // Middle zone (Orange) - 16km
+      features.add(_circleFeature(
+        asset.latitude, asset.longitude, 16000,
+        color: '#FF9800', opacity: 0.19,
+        strokeColor: 'transparent', strokeWidth: 0,
       ));
 
-      // Inner zone (Red) - scaled by risk level, brighter if under active threat
-      circles.add(Circle(
-        circleId: CircleId('${asset.id}_red'),
-        center: LatLng(asset.latitude, asset.longitude),
-        radius: asset.riskLevel * 8000.0,
-        fillColor: isCritical
-            ? const Color(0xA0F44336) // Intense red - critical
-            : isUnderThreat
-                ? const Color(0x80F44336)
-                : asset.riskLevel == 3
-                    ? const Color(0x55F44336)
-                    : const Color(0x35FF9800),
-        strokeWidth: isCritical ? 3 : isUnderThreat ? 2 : 1,
-        strokeColor: isCritical
-            ? const Color(0xFFFF0000)
-            : isUnderThreat
-                ? const Color(0xCCFF0000)
-                : const Color(0x30FFFFFF),
+      // Inner zone (Red) - scaled by risk level
+      final innerRadius = asset.riskLevel * 8000.0;
+      final innerOpacity = isCritical ? 0.63 : isUnderThreat ? 0.50 : asset.riskLevel == 3 ? 0.33 : 0.21;
+      final innerColor = (isCritical || isUnderThreat || asset.riskLevel == 3) ? '#F44336' : '#FF9800';
+      final innerStrokeColor = isCritical ? '#FF0000' : isUnderThreat ? '#FF0000' : '#FFFFFF';
+      final innerStrokeWidth = isCritical ? 3.0 : isUnderThreat ? 2.0 : 1.0;
+      final innerStrokeOpacity = isCritical ? 1.0 : isUnderThreat ? 0.8 : 0.19;
+
+      features.add(_circleFeature(
+        asset.latitude, asset.longitude, innerRadius,
+        color: innerColor, opacity: innerOpacity,
+        strokeColor: innerStrokeColor, strokeWidth: innerStrokeWidth,
+        strokeOpacity: innerStrokeOpacity,
       ));
     }
 
-    return circles;
+    await _mapController?.setGeoJsonSource('heat-zones-source', {
+      'type': 'FeatureCollection',
+      'features': features,
+    });
   }
 
-  // ─── IMPACT SITE CIRCLES ─────────────────────────────────────────
-
-  /// Generate economic impact blast radii - larger = bigger GDP loss.
-  Set<Circle> buildImpactSites(
+  /// Update economic impact blast radii.
+  Future<void> updateImpactSites(
     List<StrategicAsset> assets,
     Map<String, ImpactReport> impactReports,
     Map<String, ThreatAssessment>? assessments,
-  ) {
-    if (!_showImpactSites) return {};
+  ) async {
+    if (!_sourcesInitialized) return;
 
-    final circles = <Circle>{};
+    final features = <Map<String, dynamic>>[];
 
     for (final asset in assets) {
       final impact = impactReports[asset.id];
@@ -174,73 +349,69 @@ class MapProvider extends ChangeNotifier {
       if (impact == null) continue;
       if (assessment == null || assessment.alertLevel == AlertLevel.low) continue;
 
-      // Scale radius by economic impact (1B = 5km, capped at 40km)
       final impactBillions = impact.dailyRevenueLoss / 1000000000;
       final radius = (impactBillions * 5000).clamp(2000.0, 40000.0);
 
-      // Purple/magenta impact ring
-      circles.add(Circle(
-        circleId: CircleId('impact_${asset.id}'),
-        center: LatLng(asset.latitude, asset.longitude),
-        radius: radius,
-        fillColor: const Color(0x18E040FB),
-        strokeWidth: 2,
-        strokeColor: const Color(0x88E040FB),
+      features.add(_circleFeature(
+        asset.latitude, asset.longitude, radius,
+        color: '#E040FB', opacity: 0.09,
+        strokeColor: '#E040FB', strokeWidth: 2, strokeOpacity: 0.53,
       ));
     }
 
-    return circles;
+    await _mapController?.setGeoJsonSource('impact-sites-source', {
+      'type': 'FeatureCollection',
+      'features': features,
+    });
   }
 
-  // ─── THREAT EVENT CIRCLES ────────────────────────────────────────
+  /// Update threat event origin circles.
+  Future<void> updateThreatEventCircles(List<ThreatEvent> events) async {
+    if (!_sourcesInitialized) return;
 
-  /// Generate circles showing detected threat event origins on the map.
-  Set<Circle> buildThreatEventCircles(List<ThreatEvent> events) {
-    if (!_showThreatArcs) return {};
-
-    final circles = <Circle>{};
+    final features = <Map<String, dynamic>>[];
 
     for (final event in events) {
       if (!event.hasLocation) continue;
 
-      final color = event.isActive
-          ? const Color(0xCCFF1744) // Active = bright red
-          : const Color(0x66FF6E40); // Historical = dim orange
+      final color = event.isActive ? '#FF1744' : '#FF6E40';
+      final fillOpacity = event.confidence * 0.23;
 
-      // Pulsing detection circle
-      circles.add(Circle(
-        circleId: CircleId('threat_${event.id}'),
-        center: LatLng(event.latitude!, event.longitude!),
-        radius: event.isActive ? 15000 : 8000,
-        fillColor: Color.fromARGB(
-          (event.confidence * 60).toInt(),
-          (color.value >> 16) & 0xFF,
-          (color.value >> 8) & 0xFF,
-          color.value & 0xFF,
-        ),
-        strokeWidth: event.isActive ? 2 : 1,
-        strokeColor: color,
-      ));
+      features.add({
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [event.longitude!, event.latitude!],
+        },
+        'properties': {
+          'radius': event.isActive ? 12.0 : 7.0, // screen pixels
+          'color': color,
+          'opacity': fillOpacity,
+          'strokeColor': color,
+          'strokeWidth': event.isActive ? 2.0 : 1.0,
+        },
+      });
     }
 
-    return circles;
+    await _mapController?.setGeoJsonSource('threat-circles-source', {
+      'type': 'FeatureCollection',
+      'features': features,
+    });
   }
 
-  // ─── THREAT TRAJECTORY POLYLINES ─────────────────────────────────
-
-  /// Generate trajectory lines from threat event origins to nearest target assets.
-  Set<Polyline> buildThreatTrajectories(
+  /// Update trajectory arcs from threat origins to nearest target assets.
+  Future<void> updateTrajectories(
     List<ThreatEvent> events,
     List<StrategicAsset> assets,
-  ) {
-    if (!_showThreatArcs) return {};
+  ) async {
+    if (!_sourcesInitialized) return;
 
-    final polylines = <Polyline>{};
+    final features = <Map<String, dynamic>>[];
 
     for (final event in events) {
       if (!event.hasLocation || !event.isActive) continue;
 
-      // Find the closest high-risk asset as the likely target
+      // Find closest high-risk asset as likely target
       StrategicAsset? target;
       double minDist = double.infinity;
       for (final asset in assets.where((a) => a.riskLevel >= 2)) {
@@ -253,32 +424,136 @@ class MapProvider extends ChangeNotifier {
           target = asset;
         }
       }
-
       if (target == null) continue;
 
-      final trajectoryColor = event.severityScore >= 7
-          ? const Color(0xDDFF1744)
+      final color = event.severityScore >= 7
+          ? '#FF1744'
           : event.severityScore >= 4
-              ? const Color(0xBBFF9100)
-              : const Color(0x88FFEA00);
+              ? '#FF9100'
+              : '#FFEA00';
+      final width = event.severityScore >= 7 ? 4.0 : 2.0;
 
-      // Build trajectory arc with intermediate points for curvature
-      final points = _buildArc(
+      final arcPoints = _buildArc(
         LatLng(event.latitude!, event.longitude!),
         LatLng(target.latitude, target.longitude),
         segments: 20,
       );
 
-      polylines.add(Polyline(
-        polylineId: PolylineId('traj_${event.id}'),
-        points: points,
-        color: trajectoryColor,
-        width: event.severityScore >= 7 ? 4 : 2,
-        patterns: [PatternItem.dash(20), PatternItem.gap(10)],
-      ));
+      features.add({
+        'type': 'Feature',
+        'geometry': {
+          'type': 'LineString',
+          'coordinates': arcPoints.map((p) => [p.longitude, p.latitude]).toList(),
+        },
+        'properties': {
+          'color': color,
+          'width': width,
+        },
+      });
     }
 
-    return polylines;
+    await _mapController?.setGeoJsonSource('trajectories-source', {
+      'type': 'FeatureCollection',
+      'features': features,
+    });
+  }
+
+  /// Update asset markers (symbols with colored icons).
+  Future<void> updateAssetMarkers(
+    List<StrategicAsset> assets,
+    Map<String, ThreatAssessment>? assessments,
+  ) async {
+    if (!_sourcesInitialized) return;
+
+    final features = <Map<String, dynamic>>[];
+
+    for (final asset in assets) {
+      final assessment = assessments?[asset.id];
+      final isCritical =
+          assessment != null && assessment.alertLevel == AlertLevel.critical;
+      final isHigh =
+          assessment != null && assessment.alertLevel == AlertLevel.high;
+
+      final iconName = isCritical
+          ? 'marker-red'
+          : isHigh
+              ? 'marker-orange'
+              : asset.riskLevel == 3
+                  ? 'marker-rose'
+                  : asset.riskLevel == 2
+                      ? 'marker-orange'
+                      : 'marker-yellow';
+
+      final label = '${asset.sectorIcon} ${asset.name}';
+      final zIndex = isCritical ? 10.0 : isHigh ? 5.0 : 1.0;
+
+      features.add({
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [asset.longitude, asset.latitude],
+        },
+        'properties': {
+          'id': asset.id,
+          'icon': iconName,
+          'label': label,
+          'zIndex': zIndex,
+          'snippet': _markerSnippet(asset, assessment),
+        },
+      });
+    }
+
+    await _mapController?.setGeoJsonSource('asset-markers-source', {
+      'type': 'FeatureCollection',
+      'features': features,
+    });
+  }
+
+  /// Update threat event markers (origin indicators).
+  Future<void> updateThreatEventMarkers(List<ThreatEvent> events) async {
+    if (!_sourcesInitialized) return;
+
+    final features = <Map<String, dynamic>>[];
+
+    for (final event in events) {
+      if (!event.hasLocation) continue;
+
+      features.add({
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [event.longitude!, event.latitude!],
+        },
+        'properties': {
+          'id': 'evt_${event.id}',
+          'icon': event.isActive ? 'marker-violet' : 'marker-cyan',
+          'opacity': event.confidence.clamp(0.5, 1.0),
+          'zIndex': event.isActive ? 15.0 : 2.0,
+          'headline': '${event.sourceFlag} ${event.type.name.toUpperCase()}',
+          'snippet': '${event.headline} | Severity: ${event.severityScore}/10',
+        },
+      });
+    }
+
+    await _mapController?.setGeoJsonSource('threat-markers-source', {
+      'type': 'FeatureCollection',
+      'features': features,
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  HELPERS
+  // ═══════════════════════════════════════════════════════════════════
+
+  String _markerSnippet(StrategicAsset asset, ThreatAssessment? assessment) {
+    final parts = <String>['Risk: ${asset.riskLevel}/3 | ${asset.sector}'];
+    if (assessment != null && assessment.threatScore > 10) {
+      parts.add('Threat: ${assessment.threatScore.toStringAsFixed(0)}/100');
+    }
+    if (assessment != null && assessment.estimatedTimeToImpact != null) {
+      parts.add('ETA: ${assessment.formattedEta}');
+    }
+    return parts.join(' | ');
   }
 
   /// Build a curved arc between two points (great circle approximation).
@@ -306,78 +581,43 @@ class MapProvider extends ChangeNotifier {
     return dlat * dlat + dlng * dlng; // Euclidean approximation for sorting
   }
 
-  // ─── ASSET MARKERS ───────────────────────────────────────────────
-
-  /// Generate markers for strategic assets with dynamic coloring.
-  Set<Marker> buildMarkers(
-    List<StrategicAsset> assets,
-    Map<String, ThreatAssessment>? assessments,
-    void Function(StrategicAsset) onTap,
-  ) {
-    return assets.map((asset) {
-      final assessment = assessments?[asset.id];
-      final isCritical =
-          assessment != null && assessment.alertLevel == AlertLevel.critical;
-      final isHigh =
-          assessment != null && assessment.alertLevel == AlertLevel.high;
-
-      return Marker(
-        markerId: MarkerId(asset.id),
-        position: LatLng(asset.latitude, asset.longitude),
-        infoWindow: InfoWindow(
-          title: '${asset.sectorIcon} ${asset.name}',
-          snippet: _markerSnippet(asset, assessment),
-        ),
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-          isCritical
-              ? BitmapDescriptor.hueRed
-              : isHigh
-                  ? BitmapDescriptor.hueOrange
-                  : asset.riskLevel == 3
-                      ? BitmapDescriptor.hueRose
-                      : asset.riskLevel == 2
-                          ? BitmapDescriptor.hueOrange
-                          : BitmapDescriptor.hueYellow,
-        ),
-        onTap: () => onTap(asset),
-        zIndex: isCritical ? 10 : isHigh ? 5 : 1,
+  /// Generate a GeoJSON Polygon ring approximating a circle on the earth.
+  Map<String, dynamic> _circleFeature(
+    double lat, double lng, double radiusMeters, {
+    required String color,
+    required double opacity,
+    required String strokeColor,
+    required double strokeWidth,
+    double strokeOpacity = 1.0,
+    int points = 64,
+  }) {
+    final coords = <List<double>>[];
+    for (int i = 0; i <= points; i++) {
+      final bearing = (i * 360.0 / points) * pi / 180.0;
+      final latRad = lat * pi / 180.0;
+      final lngRad = lng * pi / 180.0;
+      final d = radiusMeters / 6371000.0; // angular distance
+      final newLat = asin(sin(latRad) * cos(d) + cos(latRad) * sin(d) * cos(bearing));
+      final newLng = lngRad + atan2(
+        sin(bearing) * sin(d) * cos(latRad),
+        cos(d) - sin(latRad) * sin(newLat),
       );
-    }).toSet();
-  }
-
-  String _markerSnippet(StrategicAsset asset, ThreatAssessment? assessment) {
-    final parts = <String>['Risk: ${asset.riskLevel}/3 | ${asset.sector}'];
-    if (assessment != null && assessment.threatScore > 10) {
-      parts.add('Threat: ${assessment.threatScore.toStringAsFixed(0)}/100');
+      coords.add([newLng * 180.0 / pi, newLat * 180.0 / pi]);
     }
-    if (assessment != null && assessment.estimatedTimeToImpact != null) {
-      parts.add('ETA: ${assessment.formattedEta}');
-    }
-    return parts.join(' | ');
-  }
 
-  /// Generate markers for threat event origins (red pulsing dots on map).
-  Set<Marker> buildThreatEventMarkers(List<ThreatEvent> events) {
-    if (!_showThreatArcs) return {};
-
-    return events
-        .where((e) => e.hasLocation)
-        .map((event) => Marker(
-              markerId: MarkerId('evt_${event.id}'),
-              position: LatLng(event.latitude!, event.longitude!),
-              infoWindow: InfoWindow(
-                title: '${event.sourceFlag} ${event.type.name.toUpperCase()}',
-                snippet:
-                    '${event.headline} | Severity: ${event.severityScore}/10',
-              ),
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                event.isActive
-                    ? BitmapDescriptor.hueViolet
-                    : BitmapDescriptor.hueCyan,
-              ),
-              alpha: event.confidence.clamp(0.5, 1.0),
-              zIndex: event.isActive ? 15 : 2,
-            ))
-        .toSet();
+    return {
+      'type': 'Feature',
+      'geometry': {
+        'type': 'Polygon',
+        'coordinates': [coords],
+      },
+      'properties': {
+        'color': color,
+        'opacity': opacity,
+        'strokeColor': strokeColor,
+        'strokeWidth': strokeWidth,
+        'strokeOpacity': strokeOpacity,
+      },
+    };
   }
 }
