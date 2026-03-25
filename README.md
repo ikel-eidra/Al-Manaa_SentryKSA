@@ -32,27 +32,46 @@ SentryKSA exists because Saudi Arabia's 24 highest-value strategic assets need a
 
 ---
 
-## Architecture
+## Dual-Platform Architecture
+
+SentryKSA runs two separate apps from a single codebase, selected automatically at launch:
+
+| Platform | Audience | Access | Function |
+|----------|----------|--------|----------|
+| **Web** | Analysts / Command | Classified (gated) | Full war room dashboard — threat intelligence, probabilities, source provenance, civilian report overlay |
+| **Mobile** | Saudi civilians | Public | Early warning + impact reporting — complements government SMS system, feeds distributed sensor mesh |
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         WAR ROOM SCREEN                            │
-│  Google Maps + 12 Data Layers + Emergency Countdown + Analytics    │
-├──────────┬──────────┬───────────┬──────────┬───────────┬───────────┤
-│ Warning  │Trajectory│ Analytics │  Asset   │  Threat   │    Map    │
-│  Panel   │ Overlay  │  Panel    │  Detail  │  Ticker   │  Legend   │
-├──────────┴──────────┴───────────┴──────────┴───────────┴───────────┤
-│                       PROVIDER LAYER                               │
-│          ThreatProvider   MapProvider   LocaleProvider              │
-├──────────┬──────────┬───────────┬──────────────────────────────────┤
-│Triangu-  │Probabi-  │ Economic  │         DATA LAYER               │
-│lation    │lity      │ Engine    │  24 Assets │ 24 Attacks │ 30+    │
-│Engine    │Engine    │           │  Inventory │ Registry   │ Sources │
-├──────────┴──────────┴───────────┴──────────────────────────────────┤
-│                       SERVICE LAYER                                │
-│  ThreatFeedService  │  WebSocket  │  ProximityAlert  │  Scraper   │
-│  (HTTP polling)     │  (live)     │  (GPS siren)     │  (OSINT)   │
-└─────────────────────┴─────────────┴──────────────────┴────────────┘
+ WEB (kIsWeb = true)                   MOBILE (!kIsWeb)
+ ─────────────────────────             ─────────────────────────
+ ┌─────────────────────────┐           ┌─────────────────────────┐
+ │      WAR ROOM SCREEN    │           │  CIVILIAN WARNING SCREEN │
+ │  12-layer command map   │           │  Phase banner + active   │
+ │  + all analytics panels │           │  warnings + shelter guide│
+ ├─────────────────────────┤           ├─────────────────────────┤
+ │ Warning  │ Analytics    │           │  REPORT SCREEN           │
+ │ Panel    │ Panel        │           │  One-tap damage report   │
+ │ Trajectory│ Asset Detail│           │  Auto-GPS + photo        │
+ │ Overlay  │ Sheet        │           ├─────────────────────────┤
+ ├─────────────────────────┤           │  CIVILIAN MAP SCREEN     │
+ │ ThreatProvider           │           │  Crowd-sourced impact    │
+ │ MapProvider              │           │  heatmap + safe corridors│
+ │ LocaleProvider           │           │  (declassified only)     │
+ ├──────────────────────────┤           ├─────────────────────────┤
+ │ ThreatTriangulationEngine │           │  CivilianProvider        │
+ │ ProbabilityEngine         │           │  CivilianReportService   │
+ │ EconomicEngine            │           │  TrajectoryValidation    │
+ │ TrajectoryValidationEngine│           │  Engine (cross-validates │
+ ├──────────────────────────┤           │  crowd reports vs.        │
+ │ DATA LAYER                │           │  classified trajectory)  │
+ │ 60+ Assets │ 24 Attacks  │           └─────────────────────────┘
+ │ 30+ Sources│ Phases      │
+ ├──────────────────────────┤
+ │ SERVICE LAYER             │
+ │ ThreatFeed │ WebSocket    │
+ │ Scraper    │ ProximityAlert│
+ │ CivilianReportService     │
+ └──────────────────────────┘
 ```
 
 ---
@@ -166,18 +185,22 @@ SHA-256( source_url | published_date | headline ) → 16-char hex hash
 
 ## Monitored Assets
 
-24 strategic assets across 4 sectors with real coordinates, risk levels, and economic output values.
+60+ strategic assets across 8 sectors with real coordinates, risk levels, and economic output values.
 
-| Sector | Count | Key Assets |
-|--------|:-----:|------------|
-| **Energy** | 10 | Abqaiq, Ras Tanura, Ghawar, Khurais, Shaybah, Yanbu, Jubail Industrial, Dhahran HQ, SATORP, Jafurah |
-| **Water** | 5 | Ras Al-Khair, Shoaiba, Jubail, Yanbu, Al Khobar desalination |
-| **Government** | 5 | Ministry of Defense, King Abdulaziz AB, Prince Sultan AB, King Khalid Military City, Naval HQ |
-| **Data** | 4 | NEOM Tech Hub, STC Riyadh, Aramco Cloud, NIC |
+| Sector | Key Assets |
+|--------|------------|
+| **Energy** | Abqaiq, Ras Tanura, Ghawar, Khurais, Shaybah, Yanbu, Jubail Industrial, Dhahran HQ, SATORP, Jafurah |
+| **Water** | Ras Al-Khair, Shoaiba, Jubail, Yanbu, Al Khobar desalination |
+| **Power** | Riyadh PP, Qurayyah, Shuaibah, Ghazlan, Fadhili, Rabigh, Shoaiba Power, Jeddah PP |
+| **Military** | Ministry of Defense, King Abdulaziz AB, Prince Sultan AB, King Khalid Military City, Naval HQ, Tabuk AB, Dhahran AB, Khamis Mushayt AB, RSAF Command |
+| **Transport** | King Abdulaziz Int'l Airport, King Khalid Int'l Airport, Jeddah Port, Dammam Port, Jubail Port, Yanbu Port, Ras Tanura Terminal, Jeddah–Riyadh Rail, NEOM Logistic Hub, Tabuk Airport |
+| **Government** | Royal Court, NEOM HQ, ARAMCO HQ, MCI, MOI, Presidency of State Security |
+| **Financial** | Saudi Central Bank, Tadawul, NCB, Riyad Bank |
+| **Data** | NEOM Tech Hub, STC Riyadh, Aramco Cloud, NIC, STC Data Center |
 
 ---
 
-## War Room UI
+## War Room UI (Web — Classified)
 
 Single-screen command dashboard with 12 composited layers:
 
@@ -192,6 +215,20 @@ Single-screen command dashboard with 12 composited layers:
 | 12 | **Analytics Panel** | War phase banner (DAY N) + strike count + intercept rate gauge + Brent delta + critical HVT count + GDP loss + prescriptive advice |
 
 **Asset Detail Sheet** (bottom sheet on tap): Full probability analysis with risk factor breakdown, historical attack timeline, source provenance cards with hash fingerprints, economic impact cascade, recovery timeline, and prescriptive advice.
+
+---
+
+## Civilian App UI (Mobile — Public)
+
+Three-screen mobile app designed for use under stress, with high-contrast dark UI and minimal interaction requirements.
+
+| Screen | Route | Function |
+|--------|-------|----------|
+| **Warning Screen** | `/` | Escalation phase banner (color-coded) + countdown to next phase + active warnings for user location + shelter guidance + quick-action buttons |
+| **Report Screen** | `/report` | One-tap damage type selection + auto-GPS capture + photo upload + description field — submit in under 10 seconds |
+| **Civilian Map** | `/civilian-map` | Crowd-sourced impact heatmap + safe corridor routing + shelter locations + user position — declassified data only |
+
+Every submitted civilian report is ingested by the war room as an intelligence overlay and cross-validated by the Trajectory Validation Engine against classified trajectory projections.
 
 ---
 
@@ -227,49 +264,59 @@ Full English/Arabic localization with 80+ translation keys covering all UI text,
 
 ```
 lib/
-├── main.dart                              # App entry, service init, theming
+├── main.dart                                 # Dual-platform entry: web→war room, mobile→civilian
 ├── data/
-│   ├── asset_inventory.dart               # 24 strategic assets with coordinates
-│   ├── historical_attack_registry.dart    # 24 attacks (2019-2026) + war phase tracker
-│   └── source_registry.dart               # 30+ hash-verified source references
+│   ├── asset_inventory.dart                  # 60+ strategic assets (8 sectors) with coordinates
+│   ├── historical_attack_registry.dart       # 24 attacks (2019-2026) + war phase tracker
+│   └── source_registry.dart                  # 30+ hash-verified source references
 ├── engines/
-│   ├── threat_triangulation_engine.dart   # Multi-source threat correlation
-│   ├── probability_engine.dart            # Bayesian P(strike) model
-│   └── economic_engine.dart               # GDP/Brent/supply chain cascade
+│   ├── threat_triangulation_engine.dart      # Multi-source threat correlation
+│   ├── probability_engine.dart               # Bayesian P(strike) model
+│   ├── economic_engine.dart                  # GDP/Brent/supply chain cascade
+│   └── trajectory_validation_engine.dart     # Cross-validates crowd reports vs. classified trajectories
 ├── models/
-│   ├── threat_event.dart                  # Core intelligence event model
-│   ├── strategic_asset.dart               # Infrastructure asset model
-│   └── impact_report.dart                 # Economic impact result
+│   ├── threat_event.dart                     # Core intelligence event model
+│   ├── strategic_asset.dart                  # Infrastructure asset model
+│   ├── impact_report.dart                    # Economic impact result
+│   ├── civilian_report.dart                  # Citizen damage report (type, GPS, photo, damage level)
+│   └── escalation_phase.dart                 # War phase state + projected next-phase timing
 ├── providers/
-│   ├── threat_provider.dart               # Central state orchestrator
-│   ├── map_provider.dart                  # GIS layer management
-│   └── locale_provider.dart               # EN/AR switching
+│   ├── threat_provider.dart                  # War room state orchestrator
+│   ├── map_provider.dart                     # GIS layer management
+│   ├── locale_provider.dart                  # EN/AR switching
+│   └── civilian_provider.dart                # Civilian app state (phase, warnings, report submission)
 ├── services/
-│   ├── threat_feed_service.dart           # HTTP intelligence polling
-│   ├── websocket_service.dart             # Live WebSocket feed
-│   ├── proximity_alert_service.dart       # GPS-based siren alerts
-│   └── news_scraper_service.dart          # OSINT multi-source scraper
+│   ├── threat_feed_service.dart              # HTTP intelligence polling
+│   ├── websocket_service.dart                # Live WebSocket feed
+│   ├── proximity_alert_service.dart          # GPS-based siren alerts
+│   ├── news_scraper_service.dart             # OSINT multi-source scraper
+│   └── civilian_report_service.dart          # Civilian report submission + war room ingestion
 ├── screens/
-│   └── war_room_screen.dart               # Primary command dashboard
+│   ├── war_room_screen.dart                  # Classified command dashboard (web)
+│   └── civilian/
+│       ├── warning_screen.dart               # Phase banner + active warnings (mobile)
+│       ├── report_screen.dart                # One-tap impact report submission (mobile)
+│       └── civilian_map_screen.dart          # Crowd-sourced impact heatmap (mobile)
 ├── widgets/
-│   ├── warning_panel.dart                 # Emergency countdown + probability
-│   ├── analytics_panel.dart               # Stats + war phase banner
-│   ├── asset_detail_sheet.dart            # Deep-dive per asset
-│   ├── threat_trajectory_overlay.dart     # Inbound threat cards
-│   ├── live_threat_ticker.dart            # Scrolling intel feed
-│   └── map_legend_overlay.dart            # Layer controls + legend
+│   ├── warning_panel.dart                    # Emergency countdown + probability
+│   ├── analytics_panel.dart                  # Stats + war phase banner
+│   ├── asset_detail_sheet.dart               # Deep-dive per asset
+│   ├── threat_trajectory_overlay.dart        # Inbound threat cards
+│   ├── live_threat_ticker.dart               # Scrolling intel feed
+│   └── map_legend_overlay.dart               # Layer controls + legend
 └── utils/
-    └── app_localizations.dart             # EN/AR translations (80+ keys)
+    └── app_localizations.dart                # EN/AR translations (80+ keys)
 
 test/
 ├── data/
-│   └── asset_inventory_test.dart          # Asset uniqueness, coordinates, filters
+│   ├── asset_inventory_test.dart             # Asset uniqueness, coordinates, sector filters
+│   └── source_registry_test.dart             # Hash verification, credibility, attack references
 └── engines/
-    ├── economic_engine_test.dart           # Impact calculations, multi-strike
+    ├── economic_engine_test.dart             # Impact calculations, multi-strike
     └── threat_triangulation_engine_test.dart # Correlation, corroboration, alerts
 ```
 
-**25 production files | 3 test suites | 7,521 lines of Dart | 275 lines of tests**
+**33 production files | 4 test suites | 9,562 lines of Dart | 368 lines of tests**
 
 ---
 
@@ -325,11 +372,17 @@ flutter pub get
 # Run tests
 flutter test
 
-# Run on device/emulator
-flutter run
+# Run war room (web — classified dashboard)
+flutter run -d chrome
 
-# Build release APK
+# Run civilian app (mobile — public warning app)
+flutter run -d <android_device_id>
+
+# Build release APK (civilian app)
 flutter build apk --release
+
+# Build release web (war room)
+flutter build web --release
 ```
 
 ---
