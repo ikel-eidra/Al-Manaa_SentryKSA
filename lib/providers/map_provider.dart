@@ -16,7 +16,7 @@ import '../engines/threat_triangulation_engine.dart';
 /// Uses MapLibre GL's style-based rendering: GeoJSON sources + style layers.
 /// Layers persist on the map; only the source data changes on refresh.
 class MapProvider extends ChangeNotifier {
-  MapLibreMapController? _mapController;
+  MaplibreMapController? _mapController;
   String _currentStyle = MapStyles.warRoomDark;
   double _zoom = 5.5;
   LatLng _center = const LatLng(24.7, 46.6); // KSA center
@@ -32,7 +32,7 @@ class MapProvider extends ChangeNotifier {
   bool _sourcesInitialized = false;
 
   // Getters
-  MapLibreMapController? get mapController => _mapController;
+  MaplibreMapController? get mapController => _mapController;
   String get currentStyle => _currentStyle;
   double get zoom => _zoom;
   LatLng get center => _center;
@@ -43,7 +43,7 @@ class MapProvider extends ChangeNotifier {
   bool get showAssetLabels => _showAssetLabels;
 
   /// Called when MapLibreMap is created. Sets up all GeoJSON sources and layers.
-  Future<void> setMapController(MapLibreMapController controller) async {
+  Future<void> setMapController(MaplibreMapController controller) async {
     _mapController = controller;
     notifyListeners();
   }
@@ -107,7 +107,7 @@ class MapProvider extends ChangeNotifier {
     await c.addLineLayer('trajectories-source', 'trajectories-layer', LineLayerProperties(
       lineColor: ['get', 'color'],
       lineWidth: ['get', 'width'],
-      lineDasharray: [20, 10],
+      lineDasharray: [20.0, 10.0],
     ));
 
     // Layer 6: Asset markers (symbol layer with colored icons)
@@ -118,7 +118,7 @@ class MapProvider extends ChangeNotifier {
       symbolSortKey: ['get', 'zIndex'],
       textField: ['get', 'label'],
       textSize: 10,
-      textOffset: const [0.0, 1.8],
+      textOffset: ['literal', [0.0, 1.8]],
       textColor: '#FFFFFF',
       textHaloColor: '#000000',
       textHaloWidth: 1,
@@ -135,7 +135,7 @@ class MapProvider extends ChangeNotifier {
 
     // ── 3D buildings (rendered at high zoom from base style) ───────
     try {
-      await c.addLayer('composite', '3d-buildings', FillExtrusionLayerProperties(
+      await c.addFillExtrusionLayer('composite', '3d-buildings', FillExtrusionLayerProperties(
         fillExtrusionColor: '#1a1a2e',
         fillExtrusionHeight: ['get', 'height'],
         fillExtrusionBase: ['get', 'min_height'],
@@ -150,7 +150,7 @@ class MapProvider extends ChangeNotifier {
   }
 
   /// Register colored marker icons for asset and threat symbols.
-  Future<void> _registerMarkerIcons(MapLibreMapController c) async {
+  Future<void> _registerMarkerIcons(MaplibreMapController c) async {
     const markerColors = <String, Color>{
       'marker-red': Color(0xFFF44336),
       'marker-orange': Color(0xFFFF9800),
@@ -271,7 +271,14 @@ class MapProvider extends ChangeNotifier {
   }
 
   void _setLayerVisibility(String layerId, bool visible) {
-    _mapController?.setLayerVisibility(layerId, visible);
+    try {
+      _mapController?.setLayerProperties(
+        layerId,
+        visible ? {'visibility': 'visible'} : {'visibility': 'none'},
+      );
+    } catch (_) {
+      // Layer may not exist yet if style hasn't loaded
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════

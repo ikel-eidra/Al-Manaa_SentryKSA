@@ -25,7 +25,7 @@ class CivilianMapScreen extends StatefulWidget {
 }
 
 class _CivilianMapScreenState extends State<CivilianMapScreen> {
-  MapLibreMapController? _mapController;
+  MaplibreMapController? _mapController;
   bool _layersInitialized = false;
 
   @override
@@ -34,7 +34,7 @@ class _CivilianMapScreenState extends State<CivilianMapScreen> {
     super.dispose();
   }
 
-  Future<void> _onMapCreated(MapLibreMapController controller) async {
+  Future<void> _onMapCreated(MaplibreMapController controller) async {
     _mapController = controller;
   }
 
@@ -157,7 +157,7 @@ class _CivilianMapScreenState extends State<CivilianMapScreen> {
           return Stack(
             children: [
               // ── MAPLIBRE GL MAP ────────────────────────────────
-              MapLibreMap(
+              MaplibreMap(
                 initialCameraPosition: const CameraPosition(
                   target: LatLng(24.7, 46.6),
                   zoom: 6.0,

@@ -1,3 +1,5 @@
+import 'dart:math' show Point;
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -37,27 +39,31 @@ class WarRoomScreen extends StatefulWidget {
 }
 
 class _WarRoomScreenState extends State<WarRoomScreen> {
+  ThreatProvider? _threatProvider;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final threatProvider = context.read<ThreatProvider>();
-      threatProvider.loadInitialData(AssetInventory.allAssets);
-      threatProvider.startMonitoring();
-      threatProvider.addListener(_onThreatDataChanged);
+      _threatProvider = context.read<ThreatProvider>();
+      _threatProvider!.loadInitialData(AssetInventory.allAssets);
+      _threatProvider!.startMonitoring();
+      _threatProvider!.addListener(_onThreatDataChanged);
     });
   }
 
   @override
   void dispose() {
-    context.read<ThreatProvider>().removeListener(_onThreatDataChanged);
+    _threatProvider?.removeListener(_onThreatDataChanged);
     super.dispose();
   }
 
   /// Push latest threat data into the map layers whenever ThreatProvider updates.
   void _onThreatDataChanged() {
+    if (!mounted) return;
     final mapProvider = context.read<MapProvider>();
-    final threatProvider = context.read<ThreatProvider>();
+    final threatProvider = _threatProvider;
+    if (threatProvider == null) return;
     final assets = AssetInventory.allAssets;
 
     mapProvider.updateHeatZones(assets, threatProvider.assessments);
@@ -86,11 +92,24 @@ class _WarRoomScreenState extends State<WarRoomScreen> {
     );
   }
 
-  /// Handle taps on asset symbol markers to open the detail sheet.
-  void _onSymbolTapped(Symbol symbol) {
-    final data = symbol.data;
-    if (data == null || data['id'] == null) return;
-    final assetId = data['id'] as String;
+  /// Handle taps on the map — query rendered features to find asset markers.
+  /// GeoJSON source symbol layers don't fire onSymbolTapped, so we use
+  /// onMapClick + queryRenderedFeatures to identify tapped assets.
+  Future<void> _onMapClick(Point<double> point, LatLng coordinates) async {
+    final controller = context.read<MapProvider>().mapController;
+    if (controller == null) return;
+
+    final features = await controller.queryRenderedFeatures(
+      point,
+      ['asset-markers-layer'],
+      null,
+    );
+    if (features.isEmpty) return;
+
+    final props = features.first;
+    final assetId = props['properties']?['id'] as String?;
+    if (assetId == null) return;
+
     final asset = AssetInventory.findById(assetId);
     if (asset != null) {
       _onAssetTapped(asset);
@@ -110,7 +129,7 @@ class _WarRoomScreenState extends State<WarRoomScreen> {
           return Stack(
             children: [
               // ── LAYER 1-7: MAPLIBRE GL MAP ────────────────────────
-              MapLibreMap(
+              MaplibreMap(
                 initialCameraPosition: const CameraPosition(
                   target: LatLng(24.7, 46.6),
                   zoom: 5.5,
@@ -118,8 +137,8 @@ class _WarRoomScreenState extends State<WarRoomScreen> {
                 styleString: mapProvider.currentStyle,
                 onMapCreated: (controller) async {
                   await mapProvider.setMapController(controller);
-                  controller.onSymbolTapped.add(_onSymbolTapped);
                 },
+                onMapClick: _onMapClick,
                 onStyleLoadedCallback: () async {
                   // Re-initialize layers when style changes (all sources/layers are cleared on style swap)
                   await mapProvider.initializeLayers();
